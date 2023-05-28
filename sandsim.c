@@ -43,6 +43,34 @@ void drawGrid(int w, int h, int size, int offsetX, int offsetY, char arr[][w], i
 	}
 }
 
+void drawGrid3D(int w, int h, float size, int offsetX, int offsetY, char arr[][w], int cX, int cY){
+	int i, j;
+	
+	for(i = cY*CHUNK_SIZE+CHUNK_SIZE; i >= cY*CHUNK_SIZE; i--){
+	//for(i = 0; i < h; i++){
+		if(i == h)
+			continue;
+		for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE + CHUNK_SIZE; j++){
+			if(arr[i][j] == 1){
+				
+				DrawCube((Vector3){j*size + offsetX, i*size + offsetY, 0.0f}, size, size, size, GRAY);
+			}
+			else if(arr[i][j] == 2){
+				
+				DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, 0.0f}, size, size, size, GREEN);
+			}
+			else if(arr[i][j] == 3){
+				
+				DrawCube((Vector3){j*size + offsetX, i*size + offsetY, 0.0f}, size, size, size, BLUE);
+			}
+			else {
+				//DrawRectangle(j*size + offsetX, i*size + offsetY, size, size, SKYBLUE);
+				//DrawRectangleLines(i*size + offsetX, j*size+offsetY, size, size, BLACK);
+				
+			}
+		}
+	}
+}
 
 int testAdj(int i, int j, int w, int h, char arr[][w], int moves, int type){
 	int options = moves;
@@ -186,6 +214,7 @@ void updateGrid(int cX, int cY, int w, int h, char arr[][w], char chunks[][WORLD
 	}
 }
 
+//Random brush
 void rBrush(int x, int y, int w, int h, int r, char t, char arr[][w], char chunks[][WORLD_W/CHUNK_SIZE]){
 	int i, j;
 	for(i = 0; i < r; i++){
@@ -216,13 +245,20 @@ int main(void){
 	
 	InitWindow(screenWidth, screenHeight, "Sand Simulation");
 
-	
+	Camera camera = { 0 };
+    camera.position = (Vector3){ 50.0f, 50.0f, 50.0f }; // Camera position
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // Camera looking at point
+	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
+   	camera.fovy = 45.0f;                                // Camera field-of-view Y
+    camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
+
 
 	while(!WindowShouldClose()){
+
+		UpdateCamera(&camera);
+
 		BeginDrawing();
 		
-		
-
 		if(IsKeyDown(49)){
 			brushMode = 1;
 		}
@@ -232,6 +268,7 @@ int main(void){
 		if(IsKeyDown(51)){
 			brushMode = 3;
 		}
+		//Drawing Objects
 		if(IsMouseButtonDown(0)){
 			//printf("%d%s%d%s%d\n", (int)floor((GetMouseX()-offsetX)/(CHUNK_SIZE*blockSize)), ",", (int)floor((GetMouseY()-offsetY)/(CHUNK_SIZE*blockSize)), " :", chunks[(int)floor(GetMouseY() / CHUNK_SIZE)][(int)floor(GetMouseX()/CHUNK_SIZE)]);
 			
@@ -268,24 +305,50 @@ int main(void){
 		}
 		
 		ClearBackground(WHITE);
-		//drawGrid(WORLD_W, WORLD_H, blockSize, offsetX, offsetY, grid);
 		
+
+		//3D Drawing Chunks
+		BeginMode3D(camera);
+
+            //DrawCube((Vector3){0, 0, 0}, 2.0f, 2.0f, 2.0f, RED);
+			//DrawCube((Vector3){3, 0, 0}, 1.0f, 1.0f, 0.5f, BLUE);
+            DrawGrid(50, 1.0f);
+
+			{
+			int u, v;
+			for(u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
+				for(v = 0; v < WORLD_W/CHUNK_SIZE; v++){
+					if(chunks[u][v] == 1){
+								
+						//updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
+						
+					}
+					drawGrid3D(WORLD_W, WORLD_H, 0.2f, -30, 0, grid, v, u);	
+							
+				}
+			}
+			
+		}
+
+        EndMode3D();
+
+		//2D Drawing Chunks
 		{
 			int u, v;
 			for(u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
 				for(v = 0; v < WORLD_W/CHUNK_SIZE; v++){
 					if(chunks[u][v] == 1){
 								
-						updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
+						//updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
 						
 					}
 					drawGrid(WORLD_W, WORLD_H, blockSize, offsetX, offsetY, grid, v, u);	
 							
 				}
 			}
-			//updateGrid(5, 0, WORLD_W, WORLD_H, grid);
+			
 		}
-		//drawGrid(WORLD_W, WORLD_H, blockSize, offsetX, offsetY, grid, 1, 1);
+		
 		
 		if(brushMode == 1){
 			DrawText("Block Brush", 10, 10, 10, RED);
@@ -317,9 +380,11 @@ int main(void){
 			
 			
 		}
+		
+		//Display FPS
 		sprintf(f, "%d", GetFPS());
 		DrawText(f, 10, 20, 10, RED);
-		//DrawCircle(100, 100, 10, RED);
+		
 		EndDrawing();
 	}
 	return 0;
