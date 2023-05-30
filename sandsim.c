@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
 
 
 /* 
@@ -32,53 +33,94 @@ int randRange(int range){
 
 
 void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int cY, int cZ, Mesh cube, Material matDefault){
-	
-	int i, j, k;
-	
 
-	int mI = 0;
-	//Matrix *m = malloc(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
-	Matrix *m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
-	
-	for(i = cY*CHUNK_SIZE+CHUNK_SIZE; i >= cY*CHUNK_SIZE; i--){
-	//for(i = 0; i < h; i++){
-		if(i == WORLD_H)
-			continue;
-		for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE + CHUNK_SIZE; j++){
-			for(k = cZ * CHUNK_SIZE; k < cZ*CHUNK_SIZE + CHUNK_SIZE; k++){
-				if(arr[i][j][k] == 1){
-					
-					DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, GRAY);
-				}
-				else if(arr[i][j][k] == 2){
-					Matrix translation = MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size);
-        			Vector3 axis = (Vector3){ 0, 0, 0 };
-        			float angle = 0;
-        			Matrix rotation = MatrixRotate(axis, angle);
+		int mI = 0;
+		
+		Matrix *m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+		
+		Vector3 axis = (Vector3){ 0, 0, 0 };
+		float angle = 0;
+		Matrix rotation = MatrixRotate(axis, angle);
 
-        			m[mI] = MatrixMultiply(rotation, translation);
-					mI++;
-					//DrawMesh(cube, matDefault, MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size));
-					//DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, k*size}, size, size, size, GREEN);
-				}
-				else if(arr[i][j][k] == 3){
-					
-					DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, BLUE);
-				}
-				else {
-					//DrawRectangle(j*size + offsetX, i*size + offsetY, size, size, SKYBLUE);
-					//DrawRectangleLines(i*size + offsetX, j*size+offsetY, size, size, BLACK);
-					
+		
+		//printf("%d\n", tid);
+		
+		#pragma omp parallel shared (arr)
+		{
+			int localmI = 0;
+			Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE / 7, sizeof(Matrix));
+			
+			
+			int tid = omp_get_thread_num();
+			int num_threads = omp_get_num_threads();
+			int localI;
+			
+			//printf("%d\n", tid);
+			//printf("%d\n", num_threads);
+			int i, j, k;
+			for(i = cY*CHUNK_SIZE+CHUNK_SIZE; i >= cY*CHUNK_SIZE; i-=1){
+			
+				if(i == WORLD_H)
+					continue;
+				for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE + CHUNK_SIZE && j < WORLD_W; j++){
+					for(k = cZ * CHUNK_SIZE + tid; k < cZ*CHUNK_SIZE + CHUNK_SIZE && k < WORLD_Z; k+=num_threads){
+						
+						char curr = 0;
+						//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
+						
+						curr = arr[i][j][k];
+
+						if(curr == 1){
+							
+							//DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, GRAY);
+						}
+						else if(curr == 2){
+							
+							Matrix translation = MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size);
+							localM[localmI] = MatrixMultiply(rotation, translation);
+							localmI++;
+							
+							
+							
+							//DrawMesh(cube, matDefault, MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size));
+							//DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, k*size}, size, size, size, GREEN);
+						}
+						else if(curr == 3){
+							
+							//DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, BLUE);
+						}
+						else {
+							//DrawRectangle(j*size + offsetX, i*size + offsetY, size, size, SKYBLUE);
+							//DrawRectangleLines(i*size + offsetX, j*size+offsetY, size, size, BLACK);
+							
+						}
+						
+					}
 				}
 			}
-		}
-	}
+			
+			//#pragma omp barrier
+			#pragma omp critical 
+			{
+				
+				for(int i = 0; i < localmI; i++){
+					m[mI] = localM[i];
+					mI++;
+				}
+				
+			}
+			
+			RL_FREE(localM);
+			
+			
 
-	//printf("%d\n", mI);
-	DrawMeshInstanced(cube, matDefault, m, mI);
+		}
+		//printf("%d\n", mI);
+		DrawMeshInstanced(cube, matDefault, m, mI);
+		
+		RL_FREE(m);
+		//free(m);
 	
-	RL_FREE(m);
-	//free(m);
 }
 
 /*
@@ -237,7 +279,7 @@ void rainBrush(char ***grid, char ***chunks){
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
 				else {
-					grid[y][x][z] = 0;
+					grid[y][x][z] = 9;
 				}
 			}
 		}
@@ -257,26 +299,26 @@ int main(void){
 
 	//char grid[WORLD_H][WORLD_W][WORLD_Z] = {0};
 	
-	char ***grid = malloc(WORLD_H * sizeof(char**));
+	char ***grid = calloc(WORLD_H, sizeof(char**));
 	for (int i = 0; i < WORLD_H; i++) {
 		
-    	grid[i] = malloc(WORLD_W * sizeof(char*));
+    	grid[i] = calloc(WORLD_W , sizeof(char*));
 	}
 	for (int i = 0; i < WORLD_H; i++) {
 		for(int j = 0; j < WORLD_W; j++){
-    		grid[i][j] = malloc(WORLD_Z * sizeof(char));
+    		grid[i][j] = calloc(WORLD_Z , sizeof(char));
 		}
 	}
 
 	//char chunks[WORLD_H/CHUNK_SIZE][WORLD_W/CHUNK_SIZE][WORLD_Z/CHUNK_SIZE] = {0};
-	char ***chunks = malloc(WORLD_H/CHUNK_SIZE * sizeof(char**));
+	char ***chunks = calloc(WORLD_H/CHUNK_SIZE , sizeof(char**));
 	for (int i = 0; i < WORLD_H/CHUNK_SIZE; i++) {
 		
-    	chunks[i] = malloc(WORLD_W/CHUNK_SIZE * sizeof(char*));
+    	chunks[i] = calloc(WORLD_W/CHUNK_SIZE , sizeof(char*));
 	}
 	for (int i = 0; i < WORLD_H/CHUNK_SIZE; i++) {
 		for(int j = 0; j < WORLD_W/CHUNK_SIZE; j++){
-    		chunks[i][j] = malloc(WORLD_Z/CHUNK_SIZE * sizeof(char));
+    		chunks[i][j] = calloc(WORLD_Z/CHUNK_SIZE , sizeof(char));
 		}
 	}
 	
@@ -316,7 +358,7 @@ int main(void){
     // to be used on mesh drawing with DrawMeshInstanced()
     Material matDefault = LoadMaterialDefault();
     matDefault.shader = shader;
-    matDefault.maps[MATERIAL_MAP_DIFFUSE].color = GREEN;
+    matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
 
 
 	//Material matDefault = LoadMaterialDefault();
@@ -359,6 +401,7 @@ int main(void){
 
 		
 		{
+			
 			int u, v, w;
 			for(u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
 				for(v = 0; v < WORLD_W/CHUNK_SIZE; v++){
@@ -374,6 +417,7 @@ int main(void){
 				}
 			}
 			
+				
 		}
 		
         EndMode3D();
