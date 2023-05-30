@@ -13,10 +13,10 @@
  * 300 x 500 
  * Chunk size 50
  * */
-#define WORLD_H 300
+#define WORLD_H 200
 #define WORLD_W 500
-#define WORLD_Z 50
-#define CHUNK_SIZE 50
+#define WORLD_Z 100
+#define CHUNK_SIZE 100
 
 #if defined(PLATFORM_DESKTOP)
     #define GLSL_VERSION            330
@@ -58,12 +58,12 @@ void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int c
 			//printf("%d\n", tid);
 			//printf("%d\n", num_threads);
 			int i, j, k;
-			for(i = cY*CHUNK_SIZE+CHUNK_SIZE; i >= cY*CHUNK_SIZE; i-=1){
+			for(i = WORLD_H; i >= 0; i-=1){
 			
 				if(i == WORLD_H)
 					continue;
-				for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE + CHUNK_SIZE && j < WORLD_W; j++){
-					for(k = cZ * CHUNK_SIZE + tid; k < cZ*CHUNK_SIZE + CHUNK_SIZE && k < WORLD_Z; k+=num_threads){
+				for(j = 0; j < WORLD_W; j++){
+					for(k = tid; k < WORLD_Z; k+=num_threads){
 						
 						char curr = 0;
 						//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
@@ -399,7 +399,7 @@ int main(void){
             DrawGrid(50, 1.0f);
 			//DrawMeshInstanced(cube, matDefault, transforms, 1000);
 
-		
+		/*
 		{
 			
 			int u, v, w;
@@ -419,6 +419,8 @@ int main(void){
 			
 				
 		}
+		*/
+		drawGrid3D(0.2f, -60, 0, grid, 0, 0, 0, cube, matDefault);	
 		
         EndMode3D();
 
