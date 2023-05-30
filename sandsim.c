@@ -32,11 +32,11 @@ int randRange(int range){
 
 
 
-void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int cY, int cZ, Mesh cube, Material matDefault){
+int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW, Mesh cube, Material matDefault, Matrix *m){
 
 		int mI = 0;
 		
-		Matrix *m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+		//Matrix *m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
 		
 		Vector3 axis = (Vector3){ 0, 0, 0 };
 		float angle = 0;
@@ -58,12 +58,12 @@ void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int c
 			//printf("%d\n", tid);
 			//printf("%d\n", num_threads);
 			int i, j, k;
-			for(i = WORLD_H; i >= 0; i-=1){
+			for(i = cY+cYW; i >= cY; i-=1){
 			
 				if(i == WORLD_H)
 					continue;
-				for(j = 0; j < WORLD_W; j++){
-					for(k = tid; k < WORLD_Z; k+=num_threads){
+				for(j = cX; j < cX+cXW; j++){
+					for(k = tid+cZ; k < cZW; k+=num_threads){
 						
 						char curr = 0;
 						//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
@@ -76,11 +76,9 @@ void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int c
 						}
 						else if(curr == 2){
 							
-							Matrix translation = MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size);
+							Matrix translation = MatrixTranslate(j*size, -i*size + 200*size, k*size);
 							localM[localmI] = MatrixMultiply(rotation, translation);
 							localmI++;
-							
-							
 							
 							//DrawMesh(cube, matDefault, MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size));
 							//DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, k*size}, size, size, size, GREEN);
@@ -116,9 +114,9 @@ void drawGrid3D(float size, int offsetX, int offsetY, char ***arr, int cX, int c
 
 		}
 		//printf("%d\n", mI);
-		DrawMeshInstanced(cube, matDefault, m, mI);
-		
-		RL_FREE(m);
+		//DrawMeshInstanced(cube, matDefault, m, mI);
+		return mI;
+		//RL_FREE(m);
 		//free(m);
 	
 }
@@ -322,7 +320,9 @@ int main(void){
 		}
 	}
 	
-
+	//Mesh data array
+	Matrix *sandMeshData = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+	int mCount;
 
 	char f[4];
 	int k, l;
@@ -368,6 +368,7 @@ int main(void){
     
 
 	rainBrush(grid, chunks);
+	mCount = calcMesh3D(0.2f, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);	
 
 	while(!WindowShouldClose()){
 
@@ -408,10 +409,10 @@ int main(void){
 					for(w = 0; w < WORLD_Z/CHUNK_SIZE; w++){
 						if(chunks[u][v][w] == 1){
 								
-							//updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
-						
+							updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
+							mCount = calcMesh3D(0.2f, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);
 						}
-						drawGrid3D(0.2f, -60, 0, grid, v, u, w, cube, matDefault);	
+							
 					}
 							
 				}
@@ -420,8 +421,8 @@ int main(void){
 				
 		}
 		*/
-		drawGrid3D(0.2f, -60, 0, grid, 0, 0, 0, cube, matDefault);	
 		
+		DrawMeshInstanced(cube, matDefault, sandMeshData, mCount);
         EndMode3D();
 
 		
@@ -443,5 +444,6 @@ int main(void){
 		
 		EndDrawing();
 	}
+	RL_FREE(sandMeshData);
 	return 0;
 }
