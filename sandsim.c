@@ -10,12 +10,12 @@
 
 
 /* 
- * 300 x 500 
+ * 200 x 500 x 100 
  * Chunk size 50
  * */
 #define WORLD_H 200
 #define WORLD_W 500
-#define WORLD_Z 100
+#define WORLD_Z 500
 #define CHUNK_SIZE 100
 
 #if defined(PLATFORM_DESKTOP)
@@ -36,7 +36,7 @@ int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW
 
 		int mI = 0;
 		
-		//Matrix *m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+		//m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
 		
 		Vector3 axis = (Vector3){ 0, 0, 0 };
 		float angle = 0;
@@ -75,11 +75,12 @@ int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW
 							//DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, GRAY);
 						}
 						else if(curr == 2){
-							
-							Matrix translation = MatrixTranslate(j*size, -i*size + 200*size, k*size);
-							localM[localmI] = MatrixMultiply(rotation, translation);
-							localmI++;
-							
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size, -i*size + WORLD_H*size, k*size);
+								localM[localmI] = MatrixMultiply(rotation, translation);
+								localmI++;
+								
+							}
 							//DrawMesh(cube, matDefault, MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size));
 							//DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, k*size}, size, size, size, GREEN);
 						}
@@ -121,8 +122,8 @@ int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW
 	
 }
 
-/*
-int testAdj(int i, int j, int w, int h, char arr[][w], int moves, int type){
+
+int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, int type){
 	int options = moves;
 	int dir = randRange(options-1);
 	int placed = 0;
@@ -136,15 +137,15 @@ int testAdj(int i, int j, int w, int h, char arr[][w], int moves, int type){
 		}//Attempt right
 		if(dir == 0){
 			//Element into air
-			if(j-1 >= 0 && arr[i+1][j-1] == 0){
-				arr[i][j] = 0;
-				arr[i+1][j-1] = type;
+			if(j-1 >= 0 && arr[i+1][j-1][k] == 0){
+				arr[i][j][k] = 0;
+				arr[i+1][j-1][k] = type;
 				placed = 1;
 				return 1;
 			} // Sand into water
-			else if(j-1 >= 0 && arr[i+1][j-1] == 3 && type == 2){
-				arr[i][j] = 3;
-				arr[i+1][j-1] = type;
+			else if(j-1 >= 0 && arr[i+1][j-1][k] == 3 && type == 2){
+				arr[i][j][k] = 3;
+				arr[i+1][j-1][k] = type;
 				placed = 1;
 				return 1;
 			}
@@ -154,19 +155,57 @@ int testAdj(int i, int j, int w, int h, char arr[][w], int moves, int type){
 		}//Attempt Left
 		if(dir == 1){
 			//Element into air
-			if(j+1 < w && arr[i+1][j+1] == 0){
-				arr[i][j] = 0;
-				arr[i+1][j+1] = type;
+			if(j+1 < w && arr[i+1][j+1][k] == 0){
+				arr[i][j][k] = 0;
+				arr[i+1][j+1][k] = type;
 				placed = 1;
 				return 1;
 			} //Sand into water
-			else if(j+1 < w && arr[i+1][j+1] == 3 && type == 2){
-				arr[i][j] = 3;
-				arr[i+1][j+1] = type;
+			else if(j+1 < w && arr[i+1][j+1][k] == 3 && type == 2){
+				arr[i][j][k] = 3;
+				arr[i+1][j+1][k] = type;
 				placed = 1;
 				return 1;
 			}
 			else if(j+1 >= w){
+				placed = 1;
+			}
+		}
+		//Attempt backwards
+		if(dir == 2){
+			//Element into air
+			if(k-1 >= 0 && arr[i+1][j][k-1] == 0){
+				arr[i][j][k] = 0;
+				arr[i+1][j][k-1] = type;
+				placed = 1;
+				return 1;
+			} // Sand into water
+			else if(k-1 >= 0 && arr[i+1][j][k-1] == 3 && type == 2){
+				arr[i][j][k] = 3;
+				arr[i+1][j][k-1] = type;
+				placed = 1;
+				return 1;
+			}
+			else if(k-1 < 0){
+				placed = 1;
+			}
+		}
+		//Attempt forwards
+		if(dir == 3){
+			//Element into air
+			if(k+1 < d && arr[i+1][j][k+1] == 0){
+				arr[i][j][k] = 0;
+				arr[i+1][j][k+1] = type;
+				placed = 1;
+				return 1;
+			} //Sand into water
+			else if(k+1 < d && arr[i+1][j][k+1] == 3 && type == 2){
+				arr[i][j][k] = 3;
+				arr[i+1][j][k+1] = type;
+				placed = 1;
+				return 1;
+			}
+			else if(k+1 >= d){
 				placed = 1;
 			}
 		}
@@ -180,66 +219,75 @@ int testAdj(int i, int j, int w, int h, char arr[][w], int moves, int type){
 		}
 		
 	}
-	return 1;
+	return 0;
 }
 
-void updateGrid(int cX, int cY, int w, int h, char arr[][w], char chunks[][WORLD_W/CHUNK_SIZE]){
-	int i, j, v;
+void updateGrid(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char ***chunks){
+	int i, j, k, v;
 	int updated = 0;
-
+	
 	for(i = cY*CHUNK_SIZE+CHUNK_SIZE-1; i >= cY*CHUNK_SIZE; i--){
 		for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE+CHUNK_SIZE; j++){
-			//Sand
-			if(arr[i][j] == 2){
-				//Downward into air
-				if(i+1 < h && arr[i+1][j] == 0){
-					arr[i][j] = 0;
-					arr[i+1][j] = 2;
-					updated = 1;
-
-				} //Downward into water
-				else if(i+1 < h && arr[i+1][j] == 3){
-					arr[i][j]=3;
-					arr[i+1][j] = 2;
-					updated = 1;
-				} //Diagonal search
-				else{
-					v = testAdj(i, j, w, h, arr, 2, 2);
-					if(v == 1){
+			for(k = cZ*CHUNK_SIZE; k < cZ*CHUNK_SIZE+CHUNK_SIZE; k++){
+				//Sand
+				if(arr[i][j][k] == 2){
+					//Downward into air
+					if(i+1 < h && arr[i+1][j][k] == 0){
+						arr[i][j][k] = 0;
+						arr[i+1][j][k] = 2;
 						updated = 1;
+						
+
+					} //Downward into water
+					else if(i+1 < h && arr[i+1][j][k] == 3){
+						arr[i][j][k]=3;
+						arr[i+1][j][k] = 2;
+						updated = 1;
+						
+					} //Diagonal search
+					else{
+						v = testAdj(i, j, k, w, h, d, arr, 4, 2);
+						if(v == 1){
+							updated = 1;
+							
+						}
+						
 					}
-					
-				}
-			}//Water 
-			else if(arr[i][j] == 3){
-				//Downward into air
-				if(i+1 < h && arr[i+1][j] == 0){
-					arr[i][j] = 0;
-					arr[i+1][j] = 3;
-					updated = 1;
-				}
-				else {
-					//Attempt diagonal motion
-					v = testAdj(i, j, w, h, arr, 2, 3);
-					if(v == 0){
-						//If diagonal fails attempt left/right motion
-						if(j+1 < w && arr[i][j+1] == 0){
-							arr[i][j] = 0;
-							arr[i][j+1] = 3;
-							updated = 1;
-						}
-						else if(j-1 >= 0 && arr[i][j-1] == 0){
-							arr[i][j] = 0;
-							arr[i][j-1] = 3;
-							updated = 1;
-						}
+				}//Water 
+
+				/*
+				else if(arr[i][j] == 3){
+					//Downward into air
+					if(i+1 < h && arr[i+1][j] == 0){
+						arr[i][j] = 0;
+						arr[i+1][j] = 3;
+						updated = 1;
 					}
 					else {
-						updated = 1;
+						//Attempt diagonal motion
+						v = testAdj(i, j, w, h, arr, 2, 3);
+						if(v == 0){
+							//If diagonal fails attempt left/right motion
+							if(j+1 < w && arr[i][j+1] == 0){
+								arr[i][j] = 0;
+								arr[i][j+1] = 3;
+								updated = 1;
+							}
+							else if(j-1 >= 0 && arr[i][j-1] == 0){
+								arr[i][j] = 0;
+								arr[i][j-1] = 3;
+								updated = 1;
+							}
+						}
+						else {
+							updated = 1;
+						}
 					}
 				}
-			}
+				*/
 
+
+			}
 		}
 	}
 
@@ -248,22 +296,26 @@ void updateGrid(int cX, int cY, int w, int h, char arr[][w], char chunks[][WORLD
 		
 		for(i = cY-1; i <= cY+1; i++){
 			for(j = cX-1; j <= cX+1; j++){
-				//printf("%d\n", WORLD_W/CHUNK_SIZE);
-				if(i >= 0 && i < WORLD_H/CHUNK_SIZE && j >= 0 && j < WORLD_W/CHUNK_SIZE){
-					//if(chunks[i][j] != 1){	
-					chunks[i][j] = 1;
-					//}
-				}	
+				for(k = cZ-1; k <= cZ+1; k++){
+					//printf("%d\n", WORLD_W/CHUNK_SIZE);
+					if(i >= 0 && i < WORLD_H/CHUNK_SIZE && j >= 0 && j < WORLD_W/CHUNK_SIZE && k>=0 && k < WORLD_Z/CHUNK_SIZE){
+						//if(chunks[i][j] != 1){	
+						chunks[i][j][k] = 1;
+						//}
+					}	
+				}
 			}
 		}
 		
 			
 	}
 	else {
-		chunks[cY][cX] = 0;
+		
+		chunks[cY][cX][cZ] = 0;
+		
 	}
 }
-*/
+
 
 //Random brush
 void rainBrush(char ***grid, char ***chunks){
@@ -271,13 +323,13 @@ void rainBrush(char ***grid, char ***chunks){
 	for(y = 0; y < WORLD_H; y++){
 		for(x = 0; x < WORLD_W; x++){
 			for(z = 0; z < WORLD_Z; z++){
-				r = randRange(255);
+				r = randRange(155);
 				if(r == 1){
 					grid[y][x][z] = 2;
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
 				else {
-					grid[y][x][z] = 9;
+					grid[y][x][z] = 0;
 				}
 			}
 		}
@@ -292,7 +344,7 @@ int main(void){
 	const int screenHeight = 720;
 	int offsetX = 100;
 	int offsetY = 20;
-	int blockSize = 2;
+	float blockSize = 0.1f;
 	int chunkSize = 50;
 
 	//char grid[WORLD_H][WORLD_W][WORLD_Z] = {0};
@@ -321,22 +373,23 @@ int main(void){
 	}
 	
 	//Mesh data array
-	Matrix *sandMeshData = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+	Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z, sizeof(Matrix));
 	int mCount;
 
 	char f[4];
 	int k, l;
+	int init_update = 1;
 	
 	InitWindow(screenWidth, screenHeight, "Sand Simulation");
 
 	Camera camera = { 0 };
-    camera.position = (Vector3){ 50.0f, 50.0f, 50.0f }; // Camera position
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // Camera looking at point
+    camera.position = (Vector3){ 0.0f, 2.0f, 0.0f }; // Camera position
+    camera.target = (Vector3){ 10.0f, 2.0f, 0.0f };      // Camera looking at point
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
    	camera.fovy = 45.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
-	Mesh cube = GenMeshCube(0.2f, 0.2f, 0.2f);
+	Mesh cube = GenMeshCube(blockSize, blockSize, blockSize);
 
 
 	// Load lighting shader
@@ -353,6 +406,8 @@ int main(void){
 
     // Create one light
     CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 0.0f }, Vector3Zero(), WHITE, shader);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
+
 
     // NOTE: We are assigning the intancing shader to material.shader
     // to be used on mesh drawing with DrawMeshInstanced()
@@ -368,12 +423,15 @@ int main(void){
     
 
 	rainBrush(grid, chunks);
-	mCount = calcMesh3D(0.2f, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);	
+	//grid[0][0][0] = 2;
+	//grid[0][100][0] = 2;
+
+	mCount = calcMesh3D(blockSize, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);	
 
 	while(!WindowShouldClose()){
 
-		UpdateCamera(&camera, CAMERA_THIRD_PERSON);
-
+		UpdateCamera(&camera, CAMERA_FIRST_PERSON);
+		
 		float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
         SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
@@ -400,17 +458,19 @@ int main(void){
             DrawGrid(50, 1.0f);
 			//DrawMeshInstanced(cube, matDefault, transforms, 1000);
 
-		/*
+		#pragma omp parallel
 		{
-			
-			int u, v, w;
-			for(u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
-				for(v = 0; v < WORLD_W/CHUNK_SIZE; v++){
-					for(w = 0; w < WORLD_Z/CHUNK_SIZE; w++){
+			int t = omp_get_thread_num();
+			int tcnt = omp_get_num_threads();
+			for(int u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
+				for(int v = 0; v < WORLD_W/CHUNK_SIZE; v++){
+					for(int w = t; w < WORLD_Z/CHUNK_SIZE; w+=tcnt){
 						if(chunks[u][v][w] == 1){
-								
-							updateGrid(v, u, WORLD_W, WORLD_H, grid, chunks);
-							mCount = calcMesh3D(0.2f, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);
+							//DrawCube((Vector3){v * CHUNK_SIZE * 0.2 + (CHUNK_SIZE * 0.2 * 0.5), u  * chunkSize * 0.4 + (CHUNK_SIZE * 0.2 * 0.5), w*chunkSize*0.2 + (CHUNK_SIZE * 0.2 * 0.5)}, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, (Color){255, 0, 0, 30});
+							updateGrid(v, u, w, WORLD_W, WORLD_H, WORLD_Z, grid, chunks);
+							
+							init_update = 1;
+							
 						}
 							
 					}
@@ -420,12 +480,14 @@ int main(void){
 			
 				
 		}
-		*/
-		
+		if(init_update == 1){
+			mCount = calcMesh3D(blockSize, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);
+			init_update = 0;
+		}
 		DrawMeshInstanced(cube, matDefault, sandMeshData, mCount);
         EndMode3D();
 
-		
+		//printf("%d\n", grid[0][0][0]);
 		
 		if(brushMode == 1){
 			DrawText("Block Brush", 10, 10, 10, RED);
