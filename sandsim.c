@@ -14,8 +14,8 @@
  * Chunk size 50
  * */
 #define WORLD_H 200
-#define WORLD_W 500
-#define WORLD_Z 500
+#define WORLD_W 1300
+#define WORLD_Z 1300
 #define CHUNK_SIZE 100
 
 #if defined(PLATFORM_DESKTOP)
@@ -29,12 +29,15 @@
 int randRange(int range){
 	return (rand() % (range + 1));
 }
+double dist(double x1, double y1, double x2, double y2){
+	return sqrt((y2-y1)*(y2-y1) + (x2-x1)*(x2-x1));
+}
 
 
 
-int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW, Mesh cube, Material matDefault, Matrix *m){
-
-		int mI = 0;
+int calcMesh3D(float *size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW, Mesh cube, Material matDefault, Matrix **m, int *mCounts, int *divs, int divCnt){
+		
+		int mIs[7] = {0};
 		
 		//m = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
 		
@@ -42,81 +45,288 @@ int calcMesh3D(float size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW
 		float angle = 0;
 		Matrix rotation = MatrixRotate(axis, angle);
 
-		
-		//printf("%d\n", tid);
-		
 		#pragma omp parallel shared (arr)
 		{
-			int localmI = 0;
-			Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE / 7, sizeof(Matrix));
+			int localmIs[7] = {0};
+			int skip = 1;
+			Matrix **localM = RL_CALLOC(7, sizeof(Matrix*));
+			for(int i = 0; i < 7; i++){
+				localM[i] = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE / 7, sizeof(Matrix));
+				if(localM[i] == NULL){
+					printf("Failed memory allocation\n");
+				}
+			}
+			//Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE / 7, sizeof(Matrix));
 			
 			
 			int tid = omp_get_thread_num();
 			int num_threads = omp_get_num_threads();
 			int localI;
 			
-			//printf("%d\n", tid);
-			//printf("%d\n", num_threads);
+			
+
 			int i, j, k;
 			for(i = cY+cYW; i >= cY; i-=1){
 			
 				if(i == WORLD_H)
 					continue;
-				for(j = cX; j < cX+cXW; j++){
-					for(k = tid+cZ; k < cZW; k+=num_threads){
+				/*DIV1 LOCATIONS*/
+				int localDivisor = 1;
+				for(j = cX; j < divs[0] && j < cX+cXW; j++){
+					for(k = tid+cZ; k < divs[0] && k < cZW; k+=num_threads){
 						
 						char curr = 0;
-						//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
-						
 						curr = arr[i][j][k];
 
-						if(curr == 1){
-							
-							//DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, GRAY);
-						}
-						else if(curr == 2){
+						if(curr == 2){
 							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
-								Matrix translation = MatrixTranslate(j*size, -i*size + WORLD_H*size, k*size);
-								localM[localmI] = MatrixMultiply(rotation, translation);
-								localmI++;
+								Matrix translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], k*size[0]);
+								localM[0][localmIs[0]] = MatrixMultiply(rotation, translation);
+								localmIs[0]++;
 								
 							}
-							//DrawMesh(cube, matDefault, MatrixTranslate(j*size + offsetX, -i*size + offsetY + 300*size, k*size));
-							//DrawCube((Vector3){j*size + offsetX, -i*size + offsetY + 300*size, k*size}, size, size, size, GREEN);
-						}
-						else if(curr == 3){
-							
-							//DrawCube((Vector3){j*size + offsetX, i*size + offsetY, k*size}, size, size, size, BLUE);
-						}
-						else {
-							//DrawRectangle(j*size + offsetX, i*size + offsetY, size, size, SKYBLUE);
-							//DrawRectangleLines(i*size + offsetX, j*size+offsetY, size, size, BLACK);
-							
 						}
 						
 					}
 				}
+				
+				/*divs[1] LOCATIONS*/
+				//for(int l = 0; l < divCnt; l++){
+					localDivisor = (int)(size[1]/size[0]);
+					for(j = cX + divs[0]; j < divs[1] && j < cX+cXW; j+=localDivisor){
+						for(k = tid*2+cZ; k < divs[1] && k < cZW; k+=num_threads*localDivisor){
+							char curr = 0;
+							curr = arr[i][j][k];
+							if(curr == 2){
+								if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+									Matrix translation = MatrixTranslate(j*size[1]/localDivisor, -i*size[1]/localDivisor + WORLD_H*size[1]/localDivisor, k*size[1]/localDivisor);
+									localM[1][localmIs[1]] = MatrixMultiply(rotation, translation);
+									localmIs[1]++;
+									
+								}
+							}
+							
+						}
+					}
+					for(j = cX; j < divs[0] && j < cX+cXW; j+=localDivisor){
+						for(k = tid*2+cZ+divs[0]; k < divs[1] && k < cZW; k+=num_threads*localDivisor){
+							char curr = 0;
+							curr = arr[i][j][k];
+							if(curr == 2){
+								if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+									Matrix translation = MatrixTranslate(j*size[1]/localDivisor, -i*size[1]/localDivisor + WORLD_H*size[1]/localDivisor, k*size[1]/localDivisor);
+									localM[1][localmIs[1]] = MatrixMultiply(rotation, translation);
+									localmIs[1]++;
+									
+								}
+							}
+							
+						}
+					}
+				//}
+				
+				//divs[2] LOCATIONS
+				
+				localDivisor = (int)(size[2]/size[0]);
+				
+				for(j = cX + divs[1]; j < divs[2] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ; k < divs[2] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[2]/localDivisor, -i*size[2]/localDivisor + WORLD_H*size[2]/localDivisor, k*size[2]/localDivisor);
+								localM[2][localmIs[2]] = MatrixMultiply(rotation, translation);
+								localmIs[2]++;
+								
+							}
+						}
+						
+					}
+				}
+				for(j = cX; j < divs[1] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ+divs[1]; k < divs[2] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[2]/localDivisor, -i*size[2]/localDivisor + WORLD_H*size[2]/localDivisor, k*size[2]/localDivisor);
+								localM[2][localmIs[2]] = MatrixMultiply(rotation, translation);
+								localmIs[2]++;
+								
+							}
+						}
+						
+					}
+				}
+				
+				
+				//divs[3] LOCATIONS
+				localDivisor = (int)(size[3]/size[0]);
+				for(j = cX + divs[2]; j < divs[3] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ; k < divs[3] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[3]/localDivisor, -i*size[3]/localDivisor + WORLD_H*size[3]/localDivisor, k*size[3]/localDivisor);
+								localM[3][localmIs[3]] = MatrixMultiply(rotation, translation);
+								localmIs[3]++;
+								
+							}
+						}
+						
+					}
+				}
+				for(j = cX; j < divs[2] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ+divs[2]; k < divs[3] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[3]/localDivisor, -i*size[3]/localDivisor + WORLD_H*size[3]/localDivisor, k*size[3]/localDivisor);
+								localM[3][localmIs[3]] = MatrixMultiply(rotation, translation);
+								localmIs[3]++;
+								
+							}
+						}
+						
+					}
+				}
+
+				//divs[4] LOCATIONS
+				localDivisor = (int)(size[4]/size[0]);
+				for(j = cX + divs[3]; j < divs[4] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ; k < divs[4] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[4]/localDivisor, -i*size[4]/localDivisor + WORLD_H*size[4]/localDivisor, k*size[4]/localDivisor);
+								localM[4][localmIs[4]] = MatrixMultiply(rotation, translation);
+								
+								localmIs[4]++;
+								
+							}
+						}
+						
+					}
+				}
+				for(j = cX; j < divs[3] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ+divs[3]; k < divs[4] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[4]/localDivisor, -i*size[4]/localDivisor + WORLD_H*size[4]/localDivisor, k*size[4]/localDivisor);
+								localM[4][localmIs[4]] = MatrixMultiply(rotation, translation);
+								localmIs[4]++;
+								
+							}
+						}
+						
+					}
+				}
+				
+				//divs[5] LOCATIONS
+				localDivisor = (int)(size[5]/size[0]);
+				for(j = cX + divs[4]; j < divs[5] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ; k < divs[5] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[5]/localDivisor, -i*size[5]/localDivisor + WORLD_H*size[5]/localDivisor, k*size[5]/localDivisor);
+								localM[5][localmIs[5]] = MatrixMultiply(rotation, translation);
+								localmIs[5]++;
+								
+							}
+						}
+						
+					}
+				}
+				for(j = cX; j < divs[4] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ+divs[4]; k < divs[5] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[5]/localDivisor, -i*size[5]/localDivisor + WORLD_H*size[5]/localDivisor, k*size[5]/localDivisor);
+								localM[5][localmIs[5]] = MatrixMultiply(rotation, translation);
+								localmIs[5]++;
+								
+							}
+						}
+						
+					}
+				}
+
+				/*FINAL ONE*/
+				localDivisor = (int)(size[6]/size[0]);
+				for(j = cX + divs[5]; j < divs[6] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ; k < divs[6] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[6]/localDivisor, -i*size[6]/localDivisor + WORLD_H*size[6]/localDivisor, k*size[6]/localDivisor);
+								localM[6][localmIs[6]] = MatrixMultiply(rotation, translation);
+								localmIs[6]++;
+								
+							}
+						}
+						
+					}
+				}
+				for(j = cX; j < divs[5] && j < cX+cXW; j+=localDivisor){
+					for(k = tid*localDivisor+cZ+divs[5]; k < divs[6] && k < cZW; k+=num_threads*localDivisor){
+						char curr = 0;
+						curr = arr[i][j][k];
+						if(curr == 2){
+							if(!(i-1 >= 0 && arr[i-1][j][k] == 2)){
+								Matrix translation = MatrixTranslate(j*size[6]/localDivisor, -i*size[6]/localDivisor + WORLD_H*size[6]/localDivisor, k*size[6]/localDivisor);
+								localM[6][localmIs[6]] = MatrixMultiply(rotation, translation);
+								localmIs[6]++;
+								
+							}
+						}
+						
+					}
+				}
+				
+				
 			}
 			
 			//#pragma omp barrier
 			#pragma omp critical 
 			{
 				
-				for(int i = 0; i < localmI; i++){
-					m[mI] = localM[i];
-					mI++;
+				for(int j = 0; j < 7; j++){
+					for(int i = 0; i < localmIs[j]; i++){
+						m[j][mIs[j]] = localM[j][i];
+						mIs[j]++;
+					}
 				}
 				
 			}
 			
-			RL_FREE(localM);
+			#pragma omp barrier
+			{
+				for(int i = 0; i < 7; i++){
+					RL_FREE(localM[i]);
+				}
 			
+				RL_FREE(localM);
+			}
 			
 
 		}
 		//printf("%d\n", mI);
 		//DrawMeshInstanced(cube, matDefault, m, mI);
-		return mI;
+		for(int i = 0; i < 7; i++){
+			mCounts[i] = mIs[i];
+		}
+		//return mI;
 		//RL_FREE(m);
 		//free(m);
 	
@@ -336,6 +546,26 @@ void rainBrush(char ***grid, char ***chunks){
 	}
 }
 
+//Random brush
+void dustBrush(char ***grid, char ***chunks){
+	int x, y, z, r;
+	for(y = 0; y < WORLD_H; y++){
+		for(x = 0; x < WORLD_W; x++){
+			for(z = 0; z < WORLD_Z; z++){
+				
+				r = randRange(2);
+				if(r == 1 && y > WORLD_H-16){
+					grid[y][x][z] = 2;
+					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
+				}
+				else {
+					grid[y][x][z] = 0;
+				}
+			}
+		}
+	}
+}
+
 
 
 int main(void){
@@ -344,7 +574,19 @@ int main(void){
 	const int screenHeight = 720;
 	int offsetX = 100;
 	int offsetY = 20;
-	float blockSize = 0.1f;
+	float blockSizes[7];
+	/*
+	for(int i = 0; i < 6; i++){
+		blockSizes[i] = 0.025f * (2*(i+1));
+	}
+	*/
+	blockSizes[0] = 0.025f;
+	blockSizes[1] = 0.05f;
+	blockSizes[2] = 0.1f;
+	blockSizes[3] = 0.2f;
+	blockSizes[4] = 0.4f;
+	blockSizes[5] = 1.0f;
+	blockSizes[6] = 100.0f;
 	int chunkSize = 50;
 
 	//char grid[WORLD_H][WORLD_W][WORLD_Z] = {0};
@@ -357,6 +599,9 @@ int main(void){
 	for (int i = 0; i < WORLD_H; i++) {
 		for(int j = 0; j < WORLD_W; j++){
     		grid[i][j] = calloc(WORLD_Z , sizeof(char));
+			if(grid[i][j] == NULL){
+				printf("Failed memory allocation (grid)\n");
+			}
 		}
 	}
 
@@ -369,13 +614,28 @@ int main(void){
 	for (int i = 0; i < WORLD_H/CHUNK_SIZE; i++) {
 		for(int j = 0; j < WORLD_W/CHUNK_SIZE; j++){
     		chunks[i][j] = calloc(WORLD_Z/CHUNK_SIZE , sizeof(char));
+			if(chunks[i][j] == NULL){
+				printf("Failed memory allocation (chunks)\n");
+			}
 		}
 	}
 	
 	//Mesh data array
-	Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z, sizeof(Matrix));
-	int mCount;
+	Matrix **sandMeshData = RL_CALLOC(6, sizeof(Matrix*));
+	//Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z, sizeof(Matrix));
+	for(int i = 0; i < 6; i++){
+		sandMeshData[i] = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 400, sizeof(Matrix));
+		if(sandMeshData[i] == NULL){
+			printf("Failed memory allocation (mesh)\n");
+			printf("%d\n", i);
+		}
+	}
 
+	int mCounts[7] = {0};
+
+	int divCnt = 7;
+	int divs[7] = {300, 400, 500, 600, 700, 1300, 0};
+	
 	char f[4];
 	int k, l;
 	int init_update = 1;
@@ -389,8 +649,14 @@ int main(void){
    	camera.fovy = 45.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
-	Mesh cube = GenMeshCube(blockSize, blockSize, blockSize);
-
+	//Mesh cube = GenMeshPlane(blockSize, blockSize, 1, 1);
+	Mesh cube = GenMeshCube(blockSizes[0], blockSizes[0], blockSizes[0]);
+	Mesh cube2 = GenMeshCube(blockSizes[1], blockSizes[0], blockSizes[1]);
+	Mesh cube3 = GenMeshCube(blockSizes[2], blockSizes[0], blockSizes[2]);
+	Mesh cube4 = GenMeshCube(blockSizes[3], blockSizes[0], blockSizes[3]);
+	Mesh cube5 = GenMeshCube(blockSizes[4], blockSizes[0], blockSizes[4]);
+	Mesh cube6 = GenMeshCube(blockSizes[5], blockSizes[0], blockSizes[5]);
+	Mesh cube7 = GenMeshCube(blockSizes[6], blockSizes[0], blockSizes[6]);
 
 	// Load lighting shader
     Shader shader = LoadShader(TextFormat("resources/lighting_instancing.vs", GLSL_VERSION),
@@ -409,11 +675,14 @@ int main(void){
 	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
 
 
-    // NOTE: We are assigning the intancing shader to material.shader
-    // to be used on mesh drawing with DrawMeshInstanced()
+	
+    Texture texture = LoadTexture("resources/sandtexture2.png");
+    
+
     Material matDefault = LoadMaterialDefault();
     matDefault.shader = shader;
-    matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
+	matDefault.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    //matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
 
 
 	//Material matDefault = LoadMaterialDefault();
@@ -422,11 +691,11 @@ int main(void){
 
     
 
-	rainBrush(grid, chunks);
+	dustBrush(grid, chunks);
 	//grid[0][0][0] = 2;
 	//grid[0][100][0] = 2;
 
-	mCount = calcMesh3D(blockSize, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);	
+	calcMesh3D(blockSizes, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData, mCounts, divs, divCnt);	
 
 	while(!WindowShouldClose()){
 
@@ -434,7 +703,7 @@ int main(void){
 		
 		float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
         SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
-
+		
 		BeginDrawing();
 		
 		if(IsKeyDown(49)){
@@ -481,10 +750,18 @@ int main(void){
 				
 		}
 		if(init_update == 1){
-			mCount = calcMesh3D(blockSize, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData);
+			calcMesh3D(blockSizes, grid, 0, 0, 0, WORLD_W, WORLD_H, WORLD_Z, cube, matDefault, sandMeshData, mCounts, divs, divCnt);
 			init_update = 0;
 		}
-		DrawMeshInstanced(cube, matDefault, sandMeshData, mCount);
+		DrawMeshInstanced(cube, matDefault, sandMeshData[0], mCounts[0]);
+		DrawMeshInstanced(cube2, matDefault, sandMeshData[1], mCounts[1]);
+		DrawMeshInstanced(cube3, matDefault, sandMeshData[2], mCounts[2]);
+		DrawMeshInstanced(cube4, matDefault, sandMeshData[3], mCounts[3]);
+		DrawMeshInstanced(cube5, matDefault, sandMeshData[4], mCounts[4]);
+		DrawMeshInstanced(cube6, matDefault, sandMeshData[5], mCounts[5]);
+		DrawMeshInstanced(cube6, matDefault, sandMeshData[6], mCounts[6]);
+		
+		//DrawMeshInstanced(cube, matDefault, sandMeshData[1], 1);
         EndMode3D();
 
 		//printf("%d\n", grid[0][0][0]);
@@ -507,5 +784,8 @@ int main(void){
 		EndDrawing();
 	}
 	RL_FREE(sandMeshData);
+
+	printf("%s%d%s%d%s%d%s%d%s%d%s%d\n", "0:", mCounts[0], "1:", mCounts[1], "2:", mCounts[2], "3:", mCounts[3], "4:", mCounts[4], "5:", mCounts[5]);
+
 	return 0;
 }
