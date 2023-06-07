@@ -14,8 +14,8 @@
  * Chunk size 50
  * */
 #define WORLD_H 200
-#define WORLD_W 900
-#define WORLD_Z 900
+#define WORLD_W 1000
+#define WORLD_Z 1000
 #define CHUNK_SIZE 100
 
 #if defined(PLATFORM_DESKTOP)
@@ -33,126 +33,289 @@ double dist(double x1, double y1, double x2, double y2){
 	return sqrt((y2-y1)*(y2-y1) + (x2-x1)*(x2-x1));
 }
 
-void refreshMeshBuffer(Matrix **m, int *mCounts){
-	for(int i = 0; i < 3; i++){
-		free(m[i]);
-		m[i] = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 10, sizeof(Matrix));
-		if(m[i] == NULL){
-			printf("Failed memory allocation (mesh)\n");
-			printf("%d\n", i);
-		}
-	}
+void refreshMeshBuffer(Matrix *m, int *mCounts){
+	
+	//free(m);
+	/*Try replacing this with a for loop that sets m to be empty
+	
+	*/
 
-	for(int i =0; i < 3; i++){
-		mCounts[i] = 0;
+	m = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 60, sizeof(Matrix));
+	
+	if(m == NULL){
+		printf("Failed memory allocation (refresh)\n");
 	}
+	
+	
+	mCounts[0] = 0;
+	
+}
+int fHeight(char ***arr, int j, int k){
+	int rVal = WORLD_H-1;
+	
+	while(rVal > 0 && arr[rVal][j][k] == 4){
+		
+		rVal--;
+	}
+	
+	return WORLD_H-rVal;
 }
 
-int calcMesh3D(float *size, char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW, Matrix **m, int *mCounts, int density){
+static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, int density){
 		
-		int mIs[3] = {0};
+		Mesh mesh = {0};
+		
+		mesh.triangleCount = cXW*cZW*2;
+		mesh.vertexCount = mesh.triangleCount*3;
+		mesh.vertices = (float *)MemAlloc(mesh.vertexCount*3*sizeof(float));    // 3 vertices, 3 coordinates each (x, y, z)
+   		mesh.texcoords = (float *)MemAlloc(mesh.vertexCount*2*sizeof(float));   // 3 vertices, 2 coordinates each (x, y)
+   	 	mesh.normals = (float *)MemAlloc(mesh.vertexCount*3*sizeof(float)); 
+
+		int j, k = 0;
+		int a = 0;
+		int b = 0;
+		int i = 0;
+		
+		for(j = cX;  j < cX+cXW; j+=1*density){
+			for(k = cZ+j%density; k < cZ+cZW; k+=1*density){
+				int sA = 0;
+				int sB = 0;
+				int ll = fHeight(arr, j, k);
+				int lr = fHeight(arr, j, k+1);
+				int ul = fHeight(arr, j+1, k);
+				int ur = fHeight(arr, j+1, k+1);
+
+				float delta = abs((ul+ur)/2 - (ll+lr)/2);
+				float shiftX = 0;
+				float shiftY = 0;
+
+				if(delta == 1){
+					shiftX = 0.5f;
+					shiftY = -0.5f;
+				}
+				if(delta == 2){
+					shiftX = 0.5f;
+					shiftY = 0.0f;
+				}
+				//0, 0
+				
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = ll * size;
+				
+				mesh.vertices[a+2] = k * size;
+				mesh.normals[a] = 0;
+				mesh.normals[a+1] = 1;
+				mesh.normals[a+2] = 0;
+				mesh.texcoords[b] = 0 + shiftX;
+				mesh.texcoords[b+1] = 0.5 + shiftY;
+				b+=2;
+				a+=3;
+				
+				//0, 1
+				
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = lr * size;
+				mesh.vertices[a+2] = (k+1) * size;
+				mesh.normals[a] = 0;
+    			mesh.normals[a+1] = 1;
+    			mesh.normals[a+2] = 0;
+    			mesh.texcoords[b] = 0 + shiftX;
+    			mesh.texcoords[b+1] = 1 + shiftY;
+				b+=2;
+				a+=3;
+
+				//1, 1
+				i = fHeight(arr, j+1, k+1);
+				mesh.vertices[a] = (j+1)*size;
+				mesh.vertices[a+1] = ur*size;
+				mesh.vertices[a+2] = (k+1)*size;
+				mesh.normals[a] = 0;
+    			mesh.normals[a+1] = 1;
+    			mesh.normals[a+2] = 0;
+    			mesh.texcoords[b] = 0.5f + shiftX;
+    			mesh.texcoords[b+1] = 1.0f + shiftY;
+				b+=2;
+				a+=3;
+					
+				//1, 0
+				i = fHeight(arr, j+1, k);
+				mesh.vertices[a] = (j+1)*size;
+				mesh.vertices[a+1] = ul*size;
+				mesh.vertices[a+2] = k*size;
+				mesh.normals[a] = 0;
+    			mesh.normals[a+1] = 1;
+    			mesh.normals[a+2] = 0;
+    			mesh.texcoords[b] = 0.5f + shiftX;
+    			mesh.texcoords[b+1] = 0.5f + shiftY;
+				b+=2;
+				a+=3;
+
+				
+
+				//0, 0
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = ll * size;
+				mesh.vertices[a+2] = k * size;
+				mesh.normals[a] = 0;
+    			mesh.normals[a+1] = 1;
+    			mesh.normals[a+2] = 0;
+    			mesh.texcoords[b] = 0 + shiftX;
+    			mesh.texcoords[b+1] = 0.5 + shiftY;
+				b+=2;
+				a+=3;
+
+				//1, 1
+				i = fHeight(arr, j+1, k+1);
+				mesh.vertices[a] = (j+1) * size;
+				mesh.vertices[a+1] = ur * size;
+				mesh.vertices[a+2] = (k+1) * size;
+				mesh.normals[a] = 0;
+    			mesh.normals[a+1] = 1;
+    			mesh.normals[a+2] = 0;
+    			mesh.texcoords[b] = 0.5f + shiftX;
+    			mesh.texcoords[b+1] = 1.0f + shiftY;
+				b+=2;
+				a+=3;
+				
+					
+			}
+		}
+		
+		
+		UploadMesh(&mesh, true);
+		return mesh;
+	
+}
+
+void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, int density, Mesh mesh){
+		
+		int j, k = 0;
+		int a = 0;
+		int b = 0;
+		int i = 0;
+		
+		for(j = cX;  j < cX+cXW; j+=1*density){
+			for(k = cZ+j%density; k < cZ+cZW; k+=1*density){
+				int sA = 0;
+				int sB = 0;
+				int ll = fHeight(arr, j, k);
+				int lr = fHeight(arr, j, k+1);
+				int ul = fHeight(arr, j+1, k);
+				int ur = fHeight(arr, j+1, k+1);
+
+				float delta = abs((ul+ur)/2 - (ll+lr)/2);
+				float shiftX = 0;
+				float shiftY = 0;
+
+				if(delta == 1){
+					shiftX = 0.5f;
+					shiftY = -0.5f;
+				}
+				if(delta == 2){
+					shiftX = 0.5f;
+					shiftY = 0.0f;
+				}
+				//0, 0
+				
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = ll * size;
+				mesh.vertices[a+2] = k * size;
+				a+=3;
+				
+				//0, 1
+				
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = lr * size;
+				mesh.vertices[a+2] = (k+1) * size;
+				a+=3;
+
+				//1, 1
+				i = fHeight(arr, j+1, k+1);
+				mesh.vertices[a] = (j+1)*size;
+				mesh.vertices[a+1] = ur*size;
+				mesh.vertices[a+2] = (k+1)*size;
+				a+=3;
+					
+				//1, 0
+				i = fHeight(arr, j+1, k);
+				mesh.vertices[a] = (j+1)*size;
+				mesh.vertices[a+1] = ul*size;
+				mesh.vertices[a+2] = k*size;
+				a+=3;
+
+				
+
+				//0, 0
+				mesh.vertices[a] = j * size;
+				mesh.vertices[a+1] = ll * size;
+				mesh.vertices[a+2] = k * size;
+				a+=3;
+
+				//1, 1
+				i = fHeight(arr, j+1, k+1);
+				mesh.vertices[a] = (j+1) * size;
+				mesh.vertices[a+1] = ur * size;
+				mesh.vertices[a+2] = (k+1) * size;
+				
+				a+=3;
+				
+					
+			}
+		}
+		UpdateMeshBuffer(mesh, 0, mesh.vertices, sizeof(float) * mesh.vertexCount * 3, 0);
+		
+	
+}
+
+int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, Matrix *m, int *mCounts, int density){
+		
+		int mIs = 0;
 		
 		Vector3 axis = (Vector3){ 0, 0, 0 };
 		float angle = 0;
 		Matrix rotation = MatrixRotate(axis, angle);
 		
-		Matrix **localM = RL_CALLOC(3, sizeof(Matrix*));
-		for(int i = 0; i < 3; i++){
-			localM[i] = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
-			if(localM[i] == NULL){
-				printf("Failed memory allocation\n");
-			}
-		}
+		Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+		
 		int i, j, k;
-		for(i = cY+cYW; i >= cY; i-=1){
+		for(i = WORLD_H; i >= 0; i-=1){
 		
 			if(i == WORLD_H)
 				continue;
 			for(j = cX;  j < cX+cXW; j+=1*density){
-				for(k = cZ+j%density; k < cZ+cZW; k+=3*density){
+				for(k = cZ; k < cZ+cZW; k+=1*density){
 					
 					char curr = 0;
-					curr = arr[i][j][k];
 					int res = 0;
-					Matrix translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], k*size[0]);
-					if(arr[i][j][k] == 2 && !(i-1 >= 0 && arr[i-1][j][k] == 2)){
-						res += 100;
-					}
-					if(arr[i][j][k+1] == 2 && !(i-1 >= 0 && arr[i-1][j][k+1] == 2)){
-						res+=10;
-					}
-					if(arr[i][j][k+2] == 2 && !(i-1 >= 0 && arr[i-1][j][k+2] == 2)){
-						res+=1;
-					}
 					
-					if(res == 111){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], (k*size[0] + (k+2)*size[0])/2.0f);
-						localM[2][mIs[2]] = MatrixMultiply(rotation, translation);
-						mIs[2]++;
+					if(arr[i][j][k] == 2){
+						Matrix translation = MatrixTranslate(j*size, -i*size + WORLD_H*size, k*size);
+						localM[mIs] = MatrixMultiply(rotation, translation);
+						mIs++;
 					}
-					else if(res == 110){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], (k*size[0] + (k+1)*size[0])/2.0f);
-						localM[1][mIs[1]] = MatrixMultiply(rotation, translation);
-						mIs[1]++;
-					}
-					else if(res == 11){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], ((k+1)*size[0] + (k+2)*size[0])/2.0f);
-						localM[1][mIs[1]] = MatrixMultiply(rotation, translation);
-						mIs[1]++;
-					}
-					else if(res == 101){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], k*size[0]);
-						localM[0][mIs[0]] = MatrixMultiply(rotation, translation);
-						mIs[0]++;
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], (k+2)*size[0]);
-						localM[0][mIs[0]] = MatrixMultiply(rotation, translation);
-						mIs[0]++;
-					}
-					else if(res == 100){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], k*size[0]);
-						localM[0][mIs[0]] = MatrixMultiply(rotation, translation);
-						mIs[0]++;
-					}
-					else if(res == 10){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], (k+1)*size[0]);
-						localM[0][mIs[0]] = MatrixMultiply(rotation, translation);
-						mIs[0]++;
-					}
-					else if(res == 1){
-						translation = MatrixTranslate(j*size[0], -i*size[0] + WORLD_H*size[0], (k+2)*size[0]);
-						localM[0][mIs[0]] = MatrixMultiply(rotation, translation);
-						mIs[0]++;
-					}
-					
-
-					
 				}
 			}
 			
 		}
 		
-		for(int j = 0; j < 3; j++){
-			for(int i = 0; i < mIs[j]; i++){
-				m[j][mCounts[j]+i] = localM[j][i];
-			}
+		
+		for(int i = 0; i < mIs; i++){
+			m[mCounts[0]+i] = localM[i];
 		}
 		
-		for(int i = 0; i < 1; i++){
-			RL_FREE(localM[i]);
-		}
 		
-			RL_FREE(localM);
+		
+		RL_FREE(localM);
 			
-			
-		for(int i = 0; i < 3; i++){
-			mCounts[i] += mIs[i];
-		}
+		mCounts[0]+=mIs;
 	
 }
+
 
 void evalMesh(char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW){
 		int total = 0;
 		int i, j, k;
+		
 		for(i = cY+cYW; i >= cY; i-=1){
 		
 			if(i == WORLD_H)
@@ -307,6 +470,9 @@ void updateGrid(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char *
 							updated = 1;
 							
 						}
+						else {
+							arr[i][j][k] = 4;
+						}
 						
 					}
 				}//Water 
@@ -400,11 +566,31 @@ void dustBrush(char ***grid, char ***chunks){
 			for(z = 0; z < WORLD_Z; z++){
 				
 				r = randRange(2);
-				if(r == 1 && y > WORLD_H-16){
+				if(r == 1 && y > WORLD_H-26 && y < WORLD_H){
 					grid[y][x][z] = 2;
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
 				else {
+					grid[y][x][z] = 0;
+				}
+			}
+		}
+	}
+}
+
+//Random local brush
+void localBrush(char ***grid, char ***chunks){
+	int x, y, z, r;
+	for(y = 0; y < WORLD_H; y++){
+		for(x = 0; x < 100; x++){
+			for(z = 0; z < 100; z++){
+				
+				r = randRange(2);
+				if(r == 1 && y > WORLD_H-66 && y < WORLD_H-40){
+					grid[y][x][z] = 2;
+					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
+				}
+				else if(grid[y][x][z] != 4){
 					grid[y][x][z] = 0;
 				}
 			}
@@ -420,20 +606,9 @@ int main(void){
 	const int screenHeight = 720;
 	int offsetX = 100;
 	int offsetY = 20;
-	float blockSizes[4];
-	/*
-	for(int i = 0; i < 6; i++){
-		blockSizes[i] = 0.025f * (2*(i+1));
-	}
-	*/
-	blockSizes[0] = 0.025f * 5;
-	blockSizes[1] = 0.05f * 5;
-	blockSizes[2] = 0.075f * 5;
-	blockSizes[3] = 0.025f;
+	float blockSizes = 0.025f;
 	int chunkSize = 50;
 
-	//char grid[WORLD_H][WORLD_W][WORLD_Z] = {0};
-	
 	char ***grid = calloc(WORLD_H, sizeof(char**));
 	for (int i = 0; i < WORLD_H; i++) {
 		
@@ -462,21 +637,28 @@ int main(void){
 			}
 		}
 	}
-	
-	//Mesh data array
-	Matrix **sandMeshData = RL_CALLOC(3, sizeof(Matrix*));
-	//Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z, sizeof(Matrix));
-	for(int i = 0; i < 3; i++){
-		sandMeshData[i] = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 10, sizeof(Matrix));
-		if(sandMeshData[i] == NULL){
-			printf("Failed memory allocation (mesh)\n");
-			printf("%d\n", i);
-		}
+
+	Model **meshArr = calloc(WORLD_W/CHUNK_SIZE, sizeof(Model*));
+	for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
+		meshArr[i] = calloc(WORLD_Z/CHUNK_SIZE, sizeof(Model));
+	}
+	char **occupiedMesh = calloc(WORLD_W/CHUNK_SIZE, sizeof(char*));
+	for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
+		occupiedMesh[i] = calloc(WORLD_Z/CHUNK_SIZE, sizeof(char));
 	}
 
-	int mCounts[3] = {0};
 
 	
+	//Mesh data array
+	Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 60, sizeof(Matrix));
+	if(sandMeshData == NULL){
+		printf("Failed memory allocation (mesh)\n");
+	}
+	
+
+	int mCounts[1];
+	mCounts[0] = 0;
+
 	char f[4];
 	int k, l;
 	int init_update = 1;
@@ -490,66 +672,63 @@ int main(void){
    	camera.fovy = 45.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
-	//Mesh cube = GenMeshPlane(blockSize, blockSize, 1, 1);
-	Model model = LoadModel("resources/sandv2.obj");
-	Model model2 = LoadModel("resources/sand2x1.obj");
-	Model model3 = LoadModel("resources/sand3x1.obj");
+	Mesh cube = GenMeshCube(blockSizes, blockSizes, blockSizes);
 	
-	Mesh cube = GenMeshCube(blockSizes[0], blockSizes[3], blockSizes[0]);
-	//Mesh cube = GenMeshCylinder(blockSizes[0], blockSizes[3], 12);
-	Mesh cube2 = GenMeshCube(blockSizes[0], blockSizes[3], blockSizes[1]);
-	Mesh cube3 = GenMeshCube(blockSizes[0], blockSizes[3], blockSizes[2]);
-
 	// Load lighting shader
-    Shader shader = LoadShader(TextFormat("resources/lighting_instancing.vs", GLSL_VERSION),
-                               TextFormat("resources/lighting.fs", GLSL_VERSION));
+    Shader shader = LoadShader(TextFormat("resources/lighting.vs"),
+                               TextFormat("resources/lighting.fs"));
     // Get shader locations
     shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader, "mvp");
     shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
+	shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(shader, "matModel");
     shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(shader, "instanceTransform");
 
-
-	//testModel.materials[0].shader = shader;
-	
     // Set shader value: ambient light level
     int ambientLoc = GetShaderLocation(shader, "ambient");
     SetShaderValue(shader, ambientLoc, (float[4]){ 0.2f, 0.2f, 0.2f, 1.0f }, SHADER_UNIFORM_VEC4);
 
+	Shader shader2 = LoadShader(TextFormat("resources/lighting_instancing.vs"),
+                               TextFormat("resources/lighting.fs"));
+    // Get shader locations
+    shader2.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader2, "mvp");
+    shader2.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader2, "viewPos");
+    shader2.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(shader2, "instanceTransform");
+
+    // Set shader value: ambient light level
+	int ambientLoc2 = GetShaderLocation(shader2, "ambient");
+    SetShaderValue(shader2, ambientLoc2, (float[4]){ 0.2f, 0.2f, 0.2f, 1.0f }, SHADER_UNIFORM_VEC4);
+
+
     // Create one light
-    CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 0.0f }, Vector3Zero(), WHITE, shader);
+	 //Light lights[MAX_LIGHTS] = { 0 };
+    //lights[0] = 
+	//CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 0.0f }, Vector3Zero(), WHITE, shader);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader2);
 	//CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
 
-
-	
-    Texture texture = LoadTexture("resources/sandtexture2.png");
+    Texture texture = LoadTexture("resources/sandtexture3.png");
     
 
     Material matDefault = LoadMaterialDefault();
-    matDefault.shader = shader;
-	matDefault.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-    //matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
+    matDefault.shader = shader2;
+	matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
 
-
-	//Material matDefault = LoadMaterialDefault();
-	//matDefault.maps[MATERIAL_MAP_DIFFUSE].color = GREEN;
-
-
+	Model m;
     
 
 	dustBrush(grid, chunks);
-	//grid[170][0][0] = 2;
-	//grid[170][0][3] = 2;
-	//grid[0][100][0] = 2;
 
-	calcMesh3D(blockSizes, grid, 0, 0, 0, 300, 200, 300, sandMeshData, mCounts, 2);	
-
+	//calcMesh3D(blockSizes, grid, 0, 0, 0, 100, 200, 100, sandMeshData, mCounts, 2);	
+	
 	while(!WindowShouldClose()){
 
 		UpdateCamera(&camera, CAMERA_FIRST_PERSON);
 		
 		float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
         SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
-		
+		SetShaderValue(shader2, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+
 		BeginDrawing();
 		
 		if(IsKeyDown(49)){
@@ -568,26 +747,35 @@ int main(void){
 		//3D Drawing Chunks
 		BeginMode3D(camera);
 
-            //DrawCube((Vector3){0, 0, 0}, 2.0f, 2.0f, 2.0f, RED);
+			DrawLine3D((Vector3){50, 50, 50}, (Vector3){0, 0, 0}, RED);
 			DrawCube((Vector3){3, 0, 0}, 0.2f, 0.2f, 0.2f, BLUE);
 			DrawCube((Vector3){0, 0, 3}, 0.2f, 0.2f, 0.2f, GREEN);
             DrawGrid(50, 1.0f);
-			//DrawPlane((Vector3){10000.0f*blockSizes[0]/2, 0.3f, 10000.0f*blockSizes[0]/2}, (Vector2){10000.0f*blockSizes[0], 10000.0f*blockSizes[0]}, GREEN);
-			//DrawMeshInstanced(cube, matDefault, transforms, 1000);
-			DrawCube((Vector3){0, 0, 0}, 0.025f, 0.025f, 0.025f, (Color){0, 255, 0, 100});
-			//DrawMesh(testModel.meshes[0], matDefault, MatrixTranslate(0, 0, 0));
+			
 			Vector3 axis = (Vector3){ 0, 0, 0 };
-		#pragma omp parallel
+		//#pragma omp parallel
 		{
-			int t = omp_get_thread_num();
-			int tcnt = omp_get_num_threads();
+			//int t = omp_get_thread_num();
+			//int tcnt = omp_get_num_threads();
 			for(int u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
 				for(int v = 0; v < WORLD_W/CHUNK_SIZE; v++){
-					for(int w = t; w < WORLD_Z/CHUNK_SIZE; w+=tcnt){
+					for(int w = 0; w < WORLD_Z/CHUNK_SIZE; w++){
 						if(chunks[u][v][w] == 1){
 							//DrawCube((Vector3){v * CHUNK_SIZE * 0.2 + (CHUNK_SIZE * 0.2 * 0.5), u  * chunkSize * 0.4 + (CHUNK_SIZE * 0.2 * 0.5), w*chunkSize*0.2 + (CHUNK_SIZE * 0.2 * 0.5)}, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, (Color){255, 0, 0, 30});
 							updateGrid(v, u, w, WORLD_W, WORLD_H, WORLD_Z, grid, chunks);
 							
+							if(occupiedMesh[v][w] == 0){
+								//If mesh does not exist create the mesh
+								occupiedMesh[v][w] = 1;
+								meshArr[v][w] = LoadModelFromMesh(calcMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1));
+								meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+								meshArr[v][w].materials[0].shader = shader;
+							}
+							else if(occupiedMesh[v][w] == 1){
+								//Run a mesh update
+								//printf("Mesh update: %d%s%d\n", v, ",", w);
+								recalculateMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
+							}
 							init_update = 1;
 							
 						}
@@ -599,29 +787,38 @@ int main(void){
 			
 				
 		}
+		
 		if(init_update == 1){
 			refreshMeshBuffer(sandMeshData, mCounts);
-			calcMesh3D(blockSizes, grid, 0, 0, 0, 100, 200, 100, sandMeshData, mCounts, 1);
-			//calcMesh3D(blockSizes, grid, 100, 0, 0, 200, 200, 100, sandMeshData, mCounts, 1);
-			//calcMesh3D(blockSizes, grid, 0, 0, 100, 100, 200, 200, sandMeshData, mCounts, 1);
-			//calcMesh3D(blockSizes, grid, 100, 0, 100, 200, 200, 200, sandMeshData, mCounts, 1);
-			//calcMesh3D(blockSizes, grid, 300, 0, 0, 200, 200, 500, sandMeshData, mCounts, 2);
-			//calcMesh3D(blockSizes, grid, 0, 0, 300, 500, 200, 200, sandMeshData, mCounts, 2);
-			//calcMesh3D(blockSizes, grid, 0, 0, 0, 900, 200, 900, sandMeshData, mCounts);
+			evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1);
+			//m = LoadModelFromMesh(calcMesh3D(blockSizes, grid, 0, 0, 800, 800, 1));
 			init_update = 0;
 		}
 
 		
-		DrawMeshInstanced(model.meshes[0], matDefault, sandMeshData[0], mCounts[0]);
-		DrawMeshInstanced(model2.meshes[0], matDefault, sandMeshData[1], mCounts[1]);
-		DrawMeshInstanced(model3.meshes[0], matDefault, sandMeshData[2], mCounts[2]);
-		if(IsKeyPressed(32)){
-			evalMesh(grid, 0, 0, 0, 300, 200, 300);	
+		for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
+			for(int j = 0; j < WORLD_Z/CHUNK_SIZE; j++){
+				//m = LoadModelFromMesh(meshArr[i][j]);
+				//meshArr[i][j].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+				//meshArr[i][j].materials[0].shader = shader;
+		
+				DrawModel(meshArr[i][j], (Vector3){i*chunkSize*blockSizes, 0, j*chunkSize*blockSizes}, 1, WHITE);
+			}
 		}
-		//DrawMeshInstanced(cube, matDefault, sandMeshData[1], 1);
+		
+		DrawMeshInstanced(cube, matDefault, sandMeshData, mCounts[0]);
+		
+		if(IsKeyPressed(32)){
+			printf("%s\n", "Calling local brush");
+			//localBrush(grid, chunks);
+			grid[150][30][150] = 2;
+			chunks[(int)floor(150 / CHUNK_SIZE)][(int)floor(30/CHUNK_SIZE)][(int)floor(150/CHUNK_SIZE)] = 1;
+			//evalMesh(grid, 0, 0, 0, 300, 200, 300);	
+		}
+		
+		
         EndMode3D();
 
-		//printf("%d\n", grid[0][0][0]);
 		
 		if(brushMode == 1){
 			DrawText("Block Brush", 10, 10, 10, RED);
@@ -642,6 +839,5 @@ int main(void){
 	}
 	RL_FREE(sandMeshData);
 
-	printf("%s%d%s%d%s%d\n", "0:", mCounts[0], ", 1:", mCounts[1], ", 2:", mCounts[2]);
 	return 0;
 }
