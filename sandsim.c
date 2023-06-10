@@ -39,13 +39,19 @@ void refreshMeshBuffer(Matrix *m, int *mCounts){
 	/*Try replacing this with a for loop that sets m to be empty
 	
 	*/
+    /*
+	for(int i = 0; i < mCounts[0]; i++){
+		m[mCounts[0]] = 0;
+	}
+	*/
 
+	/*
 	m = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 60, sizeof(Matrix));
 	
 	if(m == NULL){
 		printf("Failed memory allocation (refresh)\n");
 	}
-	
+	*/
 	
 	mCounts[0] = 0;
 	
@@ -267,7 +273,55 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 	
 }
 
-int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, Matrix *m, int *mCounts, int density){
+int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
+	
+	//Convert camera position to grid values
+	Vector3 cameraBlockPos = (Vector3){(cameraPos.x/size)-1, WORLD_H-(cameraPos.y/size), round(cameraPos.z/size)};
+	//Vector3 unnormalizedDir = Vector3Subtract((Vector3){cameraBlockPos.x, cameraBlockPos.y, cameraBlockPos.z}, (Vector3){j, i, k});
+	//cameraBlockPos = Vector3Add(cameraBlockPos, Vector3Scale(unnormalizedDir, 20));
+	//printf("%f%s%f%s%f\n", cameraBlockPos.x, ",", cameraBlockPos.y, ",", cameraBlockPos.z);
+	int monitor = 0;
+	if(i >= WORLD_H-2 && j == 0 && k == 0){
+		printf("%d%s%d%s%d\n", i, ",", j, ",", k);
+		monitor = 1;
+	}
+	Vector3 dir = Vector3Normalize(Vector3Subtract((Vector3){cameraBlockPos.x, cameraBlockPos.y, cameraBlockPos.z}, (Vector3){j, i, k}));
+	Vector3 nxt = Vector3Add((Vector3){j, i, k}, dir);
+	i = (int)round(nxt.y);
+	j = (int)round(nxt.x);
+	k = (int)round(nxt.z);
+	int blockCounts = 0;
+
+	if(monitor == 1){
+		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
+		//printf("\n");
+	}
+
+	while(i >= 0 && i < WORLD_H && j >= 0 && j < WORLD_W && k >= 0 && k <= WORLD_Z){
+		
+		if(arr[i][j][k] == 2){
+			blockCounts++;
+		}
+	    nxt = Vector3Add((Vector3){nxt.x, nxt.y, nxt.z}, dir);
+		i = (int)round(nxt.y);
+		j = (int)round(nxt.x);
+		k = (int)round(nxt.z);
+		if(monitor == 1){
+		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
+		//printf("\n");
+		}
+		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
+		if(blockCounts > 2){
+			return 0;
+		}
+		
+	}
+	//printf("\n");
+	
+	return 1;
+}
+
+int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, Matrix *m, int *mCounts, int density, Vector3 cameraPos){
 		
 		int mIs = 0;
 		
@@ -275,7 +329,7 @@ int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, M
 		float angle = 0;
 		Matrix rotation = MatrixRotate(axis, angle);
 		
-		Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
+		//Matrix *localM = (Matrix*)RL_CALLOC(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE, sizeof(Matrix));
 		
 		int i, j, k;
 		for(i = WORLD_H; i >= 0; i-=1){
@@ -287,10 +341,11 @@ int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, M
 					
 					char curr = 0;
 					int res = 0;
+					int withinBounds = (i-1 >= 0 && i+1 < WORLD_H && j-1 >= cX && j+1 < cX+cXW && k-1 > cZ && k+1 < cZ+cZW);
 					
-					if(arr[i][j][k] == 2){
+					if(arr[i][j][k] == 2 && rayBounds(arr, i, j, k, cameraPos, size) == 1 && !(withinBounds && arr[i-1][j][k] == 2 && arr[i+1][j][k] == 2 && arr[i][j-1][k] == 2 && arr[i][j+1][k] == 2 && arr[i][j][k-1] == 2 && arr[i][j][k+1] == 2)){
 						Matrix translation = MatrixTranslate(j*size, -i*size + WORLD_H*size, k*size);
-						localM[mIs] = MatrixMultiply(rotation, translation);
+						m[mCounts[0]+mIs] = MatrixMultiply(rotation, translation);
 						mIs++;
 					}
 				}
@@ -299,13 +354,13 @@ int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, M
 		}
 		
 		
-		for(int i = 0; i < mIs; i++){
-			m[mCounts[0]+i] = localM[i];
-		}
+		//for(int i = 0; i < mIs; i++){
+		//	m[mCounts[0]+i] = localM[i];
+		//}
 		
 		
 		
-		RL_FREE(localM);
+		//RL_FREE(localM);
 			
 		mCounts[0]+=mIs;
 	
@@ -444,14 +499,17 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 void updateGrid(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char ***chunks){
 	int i, j, k, v;
 	int updated = 0;
+
 	
 	for(i = cY*CHUNK_SIZE+CHUNK_SIZE-1; i >= cY*CHUNK_SIZE; i--){
 		for(j = cX*CHUNK_SIZE; j < cX*CHUNK_SIZE+CHUNK_SIZE; j++){
+			
 			for(k = cZ*CHUNK_SIZE; k < cZ*CHUNK_SIZE+CHUNK_SIZE; k++){
 				//Sand
 				if(arr[i][j][k] == 2){
 					//Downward into air
 					if(i+1 < h && arr[i+1][j][k] == 0){
+						
 						arr[i][j][k] = 0;
 						arr[i+1][j][k] = 2;
 						updated = 1;
@@ -565,8 +623,8 @@ void dustBrush(char ***grid, char ***chunks){
 		for(x = 0; x < WORLD_W; x++){
 			for(z = 0; z < WORLD_Z; z++){
 				
-				r = randRange(2);
-				if(r == 1 && y > WORLD_H-26 && y < WORLD_H){
+				r = randRange(1);
+				if(r == 0 && y > WORLD_H-26 && y < WORLD_H){
 					grid[y][x][z] = 2;
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
@@ -666,7 +724,7 @@ int main(void){
 	InitWindow(screenWidth, screenHeight, "Sand Simulation");
 
 	Camera camera = { 0 };
-    camera.position = (Vector3){ 0.0f, 2.0f, 0.0f }; // Camera position
+    camera.position = (Vector3){ -1.0f, 2.0f, -1.0f }; // Camera position
     camera.target = (Vector3){ 10.0f, 2.0f, 0.0f };      // Camera looking at point
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
    	camera.fovy = 45.0f;                                // Camera field-of-view Y
@@ -719,7 +777,8 @@ int main(void){
 
 	dustBrush(grid, chunks);
 
-	//calcMesh3D(blockSizes, grid, 0, 0, 0, 100, 200, 100, sandMeshData, mCounts, 2);	
+	//calcMesh3D(blockSizes, grid, 0, 0, 0, 100, 200, 100, sandMeshData, mCounts, 2);
+	int fCalc = 0;	
 	
 	while(!WindowShouldClose()){
 
@@ -728,6 +787,11 @@ int main(void){
 		float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
         SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 		SetShaderValue(shader2, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+
+		if(!fCalc){
+			evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
+			fCalc = 1;
+		}
 
 		BeginDrawing();
 		
@@ -747,6 +811,7 @@ int main(void){
 		//3D Drawing Chunks
 		BeginMode3D(camera);
 
+
 			DrawLine3D((Vector3){50, 50, 50}, (Vector3){0, 0, 0}, RED);
 			DrawCube((Vector3){3, 0, 0}, 0.2f, 0.2f, 0.2f, BLUE);
 			DrawCube((Vector3){0, 0, 3}, 0.2f, 0.2f, 0.2f, GREEN);
@@ -759,13 +824,14 @@ int main(void){
 			//int tcnt = omp_get_num_threads();
 			for(int u = WORLD_H / CHUNK_SIZE - 1; u >= 0; u--){
 				for(int v = 0; v < WORLD_W/CHUNK_SIZE; v++){
-					for(int w = 0; w < WORLD_Z/CHUNK_SIZE; w++){
+					for(int w = 0; w < WORLD_Z/CHUNK_SIZE; w+=1){
 						if(chunks[u][v][w] == 1){
-							//DrawCube((Vector3){v * CHUNK_SIZE * 0.2 + (CHUNK_SIZE * 0.2 * 0.5), u  * chunkSize * 0.4 + (CHUNK_SIZE * 0.2 * 0.5), w*chunkSize*0.2 + (CHUNK_SIZE * 0.2 * 0.5)}, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, CHUNK_SIZE * 0.2, (Color){255, 0, 0, 30});
+							//DrawCube((Vector3){v * CHUNK_SIZE * chunkSize + (CHUNK_SIZE * chunkSize * 0.5), u  * chunkSize * 0.4 + (CHUNK_SIZE * chunkSize * 0.5), w*chunkSize*0.2 + (CHUNK_SIZE * chunkSize * 0.5)}, CHUNK_SIZE * chunkSize, CHUNK_SIZE * chunkSize, CHUNK_SIZE * chunkSize, (Color){255, 0, 0, 30});
 							updateGrid(v, u, w, WORLD_W, WORLD_H, WORLD_Z, grid, chunks);
 							
 							if(occupiedMesh[v][w] == 0){
 								//If mesh does not exist create the mesh
+								//printf("called upon\n");
 								occupiedMesh[v][w] = 1;
 								meshArr[v][w] = LoadModelFromMesh(calcMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1));
 								meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
@@ -774,7 +840,7 @@ int main(void){
 							else if(occupiedMesh[v][w] == 1){
 								//Run a mesh update
 								//printf("Mesh update: %d%s%d\n", v, ",", w);
-								recalculateMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
+								//recalculateMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
 							}
 							init_update = 1;
 							
@@ -790,11 +856,11 @@ int main(void){
 		
 		if(init_update == 1){
 			refreshMeshBuffer(sandMeshData, mCounts);
-			evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1);
+			evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
 			//m = LoadModelFromMesh(calcMesh3D(blockSizes, grid, 0, 0, 800, 800, 1));
 			init_update = 0;
 		}
-
+		
 		
 		for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
 			for(int j = 0; j < WORLD_Z/CHUNK_SIZE; j++){
