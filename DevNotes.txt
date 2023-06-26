@@ -1,1 +1,0 @@
-gcc name.c -lraylib -lopengl32 -lgdi32 lwinmm

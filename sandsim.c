@@ -67,6 +67,133 @@ int fHeight(char ***arr, int j, int k){
 	return WORLD_H-rVal;
 }
 
+static Mesh calcTestMesh3D(){
+		
+		Mesh mesh = {0};
+		
+		mesh.triangleCount = 2;
+		mesh.vertexCount = mesh.triangleCount*3;
+		mesh.vertices = (float *)MemAlloc(mesh.vertexCount*3*sizeof(float));    // 3 vertices, 3 coordinates each (x, y, z)
+   		mesh.texcoords = (float *)MemAlloc(mesh.vertexCount*2*sizeof(float));   // 3 vertices, 2 coordinates each (x, y)
+   	 	mesh.normals = (float *)MemAlloc(mesh.vertexCount*3*sizeof(float)); 
+
+		int j, k = 0;
+		int a = 0;
+		int b = 0;
+		int i = 0;
+
+		mesh.vertices[a] = 0;
+		mesh.vertices[a+1] = 0;
+				
+		mesh.vertices[a+2] = 0;
+		mesh.normals[a] = 0;
+		mesh.normals[a+1] = 1;
+		mesh.normals[a+2] = 0;
+		mesh.texcoords[b] = 0;
+		mesh.texcoords[b+1] = 0.5;
+		b+=2;
+		a+=3;
+
+		mesh.vertices[a] = 0;
+		mesh.vertices[a+1] = 1;
+				
+		mesh.vertices[a+2] = 1;
+		mesh.normals[a] = 0;
+		mesh.normals[a+1] = 1;
+		mesh.normals[a+2] = 0;
+		mesh.texcoords[b] = 0;
+		mesh.texcoords[b+1] = 0.5;
+		b+=2;
+		a+=3;
+		
+		
+
+		mesh.vertices[a] = 0;
+		mesh.vertices[a+1] = 1;
+				
+		mesh.vertices[a+2] = 0;
+		mesh.normals[a] = 0;
+		mesh.normals[a+1] = 1;
+		mesh.normals[a+2] = 0;
+		mesh.texcoords[b] = 0;
+		mesh.texcoords[b+1] = 0.5;
+		b+=2;
+		a+=3;
+
+		
+
+		
+		
+		
+		UploadMesh(&mesh, true);
+		return mesh;
+	
+}
+
+Vector3 calcNormals(int j, int k, char ***arr){
+	int j1, j2, j3, j4;
+	int k1, k2, k3, k4;
+	j1 = j-1;
+	j2 = j+1;
+	k1 = k-1;
+	k2 = k+1;
+
+	if(j1 < 0){
+		j1 = 0;
+	}
+	if(j2 >= WORLD_W){
+		j2 = WORLD_W-1;
+	}
+	if(k1 < 0){
+		k1 = 0;
+	}
+	if(k2 >= WORLD_W){
+		k2 = WORLD_W-1;
+	}
+
+	Vector3 ul = (Vector3){j1, fHeight(arr, j1, k1), k1};
+	Vector3 ml = (Vector3){j1, fHeight(arr, j1, k), k};
+	Vector3 ll = (Vector3){j1, fHeight(arr, j1, k2), k2};
+	Vector3 ur = (Vector3){j2, fHeight(arr, j2, k1), k1};
+	Vector3 mr = (Vector3){j2, fHeight(arr, j2, k), k};
+	Vector3 lr = (Vector3){j2, fHeight(arr, j2, k2), k2};
+	Vector3 c = (Vector3){j, fHeight(arr, j, k), k};
+	Vector3 cu = (Vector3){j, fHeight(arr, j, k1), k1};
+	Vector3 cl = (Vector3){j, fHeight(arr, j, k2), k2};
+
+	
+	/*
+	QUADS:
+	Q1 = ul, ml, c, cu
+	Q2 = ml, ll, cl, c
+	Q3 = cu, c, mr, ur
+	Q4 = c, cl, lr, mr
+	*/
+
+	
+	Vector3 Q1 = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(ul, ml),  Vector3Subtract(ul, c)));
+	Vector3 Q2 = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(ml, ll),  Vector3Subtract(ml, cl)));
+	Vector3 Q3 = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(cu, c),  Vector3Subtract(cu, mr)));
+	Vector3 Q4 = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(c, cl),  Vector3Subtract(c, lr)));
+
+	Vector3 final = Vector3Normalize(Vector3Add(Vector3Add(Q1, Q2), Vector3Add(Q3, Q4)));
+
+	return final;
+
+}
+
+Vector3 quickCalcNormals(int a, int b, int c, int j, int k){
+	Vector3 f = (Vector3){j, a, k};
+	Vector3 s = (Vector3){j, b, k+1};
+	Vector3 t = (Vector3){j+1, c, k};
+
+	return Vector3Normalize(Vector3CrossProduct(Vector3Subtract(f, s),  Vector3Subtract(f, t)));
+
+}
+Vector3 fakeNormals(int a, int b, int c, int d){
+
+}
+
 static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, int density){
 		
 		Mesh mesh = {0};
@@ -91,10 +218,14 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				int ul = fHeight(arr, j+1, k);
 				int ur = fHeight(arr, j+1, k+1);
 
+				//Vector3 n = quickCalcNormals(ll, lr, ul, j, k);
+				Vector3 n = calcNormals(j, k, arr);
+
 				float delta = abs((ul+ur)/2 - (ll+lr)/2);
 				float shiftX = 0;
 				float shiftY = 0;
 
+				/*
 				if(delta == 1){
 					shiftX = 0.5f;
 					shiftY = -0.5f;
@@ -103,15 +234,18 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 					shiftX = 0.5f;
 					shiftY = 0.0f;
 				}
+				*/
+				
 				//0, 0
 				
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = ll * size;
 				
 				mesh.vertices[a+2] = k * size;
-				mesh.normals[a] = 0;
-				mesh.normals[a+1] = 1;
-				mesh.normals[a+2] = 0;
+				
+				mesh.normals[a] = n.x;
+				mesh.normals[a+1] = n.y;
+				mesh.normals[a+2] = n.z;
 				mesh.texcoords[b] = 0 + shiftX;
 				mesh.texcoords[b+1] = 0.5 + shiftY;
 				b+=2;
@@ -122,9 +256,10 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = lr * size;
 				mesh.vertices[a+2] = (k+1) * size;
-				mesh.normals[a] = 0;
-    			mesh.normals[a+1] = 1;
-    			mesh.normals[a+2] = 0;
+				n = calcNormals(j, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
     			mesh.texcoords[b] = 0 + shiftX;
     			mesh.texcoords[b+1] = 1 + shiftY;
 				b+=2;
@@ -135,9 +270,10 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1)*size;
 				mesh.vertices[a+1] = ur*size;
 				mesh.vertices[a+2] = (k+1)*size;
-				mesh.normals[a] = 0;
-    			mesh.normals[a+1] = 1;
-    			mesh.normals[a+2] = 0;
+				n = calcNormals(j+1, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
     			mesh.texcoords[b] = 0.5f + shiftX;
     			mesh.texcoords[b+1] = 1.0f + shiftY;
 				b+=2;
@@ -148,9 +284,10 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1)*size;
 				mesh.vertices[a+1] = ul*size;
 				mesh.vertices[a+2] = k*size;
-				mesh.normals[a] = 0;
-    			mesh.normals[a+1] = 1;
-    			mesh.normals[a+2] = 0;
+				n = calcNormals(j+1, k, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
     			mesh.texcoords[b] = 0.5f + shiftX;
     			mesh.texcoords[b+1] = 0.5f + shiftY;
 				b+=2;
@@ -162,9 +299,10 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = ll * size;
 				mesh.vertices[a+2] = k * size;
-				mesh.normals[a] = 0;
-    			mesh.normals[a+1] = 1;
-    			mesh.normals[a+2] = 0;
+				n = calcNormals(j, k, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
     			mesh.texcoords[b] = 0 + shiftX;
     			mesh.texcoords[b+1] = 0.5 + shiftY;
 				b+=2;
@@ -175,9 +313,10 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1) * size;
 				mesh.vertices[a+1] = ur * size;
 				mesh.vertices[a+2] = (k+1) * size;
-				mesh.normals[a] = 0;
-    			mesh.normals[a+1] = 1;
-    			mesh.normals[a+2] = 0;
+				n = calcNormals(j+1, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
     			mesh.texcoords[b] = 0.5f + shiftX;
     			mesh.texcoords[b+1] = 1.0f + shiftY;
 				b+=2;
@@ -196,12 +335,21 @@ static Mesh calcMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, int density, Mesh mesh){
 		
 		int j, k = 0;
-		int a = 0;
+		int aInit = (cX-1) * CHUNK_SIZE * 3 * 6 + cZ+cX%density * 3 * 6;
+		//int a = 0;
 		int b = 0;
 		int i = 0;
+
+		if(cX < 0){
+			cX = 0;
+		}
+		if(cZ < 0){
+			cZ = 0;
+		}
 		
 		for(j = cX;  j < cX+cXW; j+=1*density){
 			for(k = cZ+j%density; k < cZ+cZW; k+=1*density){
+				int a = (j-1) * CHUNK_SIZE * 3 * 6 + k * 3 * 6;
 				int sA = 0;
 				int sB = 0;
 				int ll = fHeight(arr, j, k);
@@ -209,10 +357,14 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				int ul = fHeight(arr, j+1, k);
 				int ur = fHeight(arr, j+1, k+1);
 
+				Vector3 n = calcNormals(j, k, arr);
+
+
 				float delta = abs((ul+ur)/2 - (ll+lr)/2);
 				float shiftX = 0;
 				float shiftY = 0;
 
+				/*
 				if(delta == 1){
 					shiftX = 0.5f;
 					shiftY = -0.5f;
@@ -221,11 +373,20 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 					shiftX = 0.5f;
 					shiftY = 0.0f;
 				}
+				*/
 				//0, 0
+				
 				
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = ll * size;
 				mesh.vertices[a+2] = k * size;
+				
+				mesh.normals[a] = n.x;
+				mesh.normals[a+1] = n.y;
+				mesh.normals[a+2] = n.z;
+				//mesh.texcoords[b] = 0 + shiftX;
+				//mesh.texcoords[b+1] = 0.5 + shiftY;
+				//b+=2;
 				a+=3;
 				
 				//0, 1
@@ -233,6 +394,13 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = lr * size;
 				mesh.vertices[a+2] = (k+1) * size;
+				n = calcNormals(j, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
+    			//mesh.texcoords[b] = 0 + shiftX;
+    			//mesh.texcoords[b+1] = 1 + shiftY;
+				//b+=2;
 				a+=3;
 
 				//1, 1
@@ -240,6 +408,13 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1)*size;
 				mesh.vertices[a+1] = ur*size;
 				mesh.vertices[a+2] = (k+1)*size;
+				n = calcNormals(j+1, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
+    			//mesh.texcoords[b] = 0.5f + shiftX;
+    			//mesh.texcoords[b+1] = 1.0f + shiftY;
+				//b+=2;
 				a+=3;
 					
 				//1, 0
@@ -247,6 +422,13 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1)*size;
 				mesh.vertices[a+1] = ul*size;
 				mesh.vertices[a+2] = k*size;
+				n = calcNormals(j+1, k, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
+    			//mesh.texcoords[b] = 0.5f + shiftX;
+    			//mesh.texcoords[b+1] = 0.5f + shiftY;
+				//b+=2;
 				a+=3;
 
 				
@@ -255,6 +437,13 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = j * size;
 				mesh.vertices[a+1] = ll * size;
 				mesh.vertices[a+2] = k * size;
+				n = calcNormals(j, k, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
+    			//mesh.texcoords[b] = 0 + shiftX;
+    			//mesh.texcoords[b+1] = 0.5 + shiftY;
+				//b+=2;
 				a+=3;
 
 				//1, 1
@@ -262,6 +451,13 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 				mesh.vertices[a] = (j+1) * size;
 				mesh.vertices[a+1] = ur * size;
 				mesh.vertices[a+2] = (k+1) * size;
+				n = calcNormals(j+1, k+1, arr);
+				mesh.normals[a] = n.x;
+    			mesh.normals[a+1] = n.y;
+    			mesh.normals[a+2] = n.z;
+    			//mesh.texcoords[b] = 0.5f + shiftX;
+    			//mesh.texcoords[b+1] = 1.0f + shiftY;
+				//b+=2;
 				
 				a+=3;
 				
@@ -269,6 +465,7 @@ void recalculateMesh3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW
 			}
 		}
 		UpdateMeshBuffer(mesh, 0, mesh.vertices, sizeof(float) * mesh.vertexCount * 3, 0);
+		UpdateMeshBuffer(mesh, 2, mesh.normals, sizeof(float) * mesh.vertexCount * 3, 0);
 		
 	
 }
@@ -281,10 +478,7 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 	//cameraBlockPos = Vector3Add(cameraBlockPos, Vector3Scale(unnormalizedDir, 20));
 	//printf("%f%s%f%s%f\n", cameraBlockPos.x, ",", cameraBlockPos.y, ",", cameraBlockPos.z);
 	int monitor = 0;
-	if(i >= WORLD_H-2 && j == 0 && k == 0){
-		printf("%d%s%d%s%d\n", i, ",", j, ",", k);
-		monitor = 1;
-	}
+	
 	Vector3 dir = Vector3Normalize(Vector3Subtract((Vector3){cameraBlockPos.x, cameraBlockPos.y, cameraBlockPos.z}, (Vector3){j, i, k}));
 	Vector3 nxt = Vector3Add((Vector3){j, i, k}, dir);
 	i = (int)round(nxt.y);
@@ -292,10 +486,7 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 	k = (int)round(nxt.z);
 	int blockCounts = 0;
 
-	if(monitor == 1){
-		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
-		//printf("\n");
-	}
+	
 
 	while(i >= 0 && i < WORLD_H && j >= 0 && j < WORLD_W && k >= 0 && k <= WORLD_Z){
 		
@@ -306,10 +497,7 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 		i = (int)round(nxt.y);
 		j = (int)round(nxt.x);
 		k = (int)round(nxt.z);
-		if(monitor == 1){
-		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
-		//printf("\n");
-		}
+		
 		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
 		if(blockCounts > 2){
 			return 0;
@@ -321,6 +509,7 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 	return 1;
 }
 
+/*DEPRECATED*/
 int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, Matrix *m, int *mCounts, int density, Vector3 cameraPos){
 		
 		int mIs = 0;
@@ -353,20 +542,48 @@ int evalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, M
 			
 		}
 		
-		
-		//for(int i = 0; i < mIs; i++){
-		//	m[mCounts[0]+i] = localM[i];
-		//}
-		
-		
-		
-		//RL_FREE(localM);
 			
 		mCounts[0]+=mIs;
 	
 }
 
+int optimizedEvalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, int cZW, Matrix *m, int *mCounts, int density, Vector3 cameraPos, int *updateQueue, int updateLength){
 
+	int mIs = 0;
+		
+	Vector3 axis = (Vector3){ 0, 0, 0 };
+	float angle = 0;
+	Matrix rotation = MatrixRotate(axis, angle);
+
+	for(int v = 0; v < updateLength; v+=3){
+		if(updateQueue[v] == -1){
+			continue;
+		}
+		int i = updateQueue[v];
+		int j = updateQueue[v+1];
+		int k = updateQueue[v+2];
+
+		if(!(j >= cX && j <= cX+cXW && k >= cZ && k <= cZ+cZW)){
+			continue;
+		}
+
+		int withinBounds = (i-1 >= 0 && i+1 < WORLD_H && j-1 >= cX && j+1 < cX+cXW && k-1 > cZ && k+1 < cZ+cZW);
+					
+		if(rayBounds(arr, i, j, k, cameraPos, size) == 1 && !(withinBounds && arr[i-1][j][k] == 2 && arr[i+1][j][k] == 2 && arr[i][j-1][k] == 2 && arr[i][j+1][k] == 2 && arr[i][j][k-1] == 2 && arr[i][j][k+1] == 2)){
+			Matrix translation = MatrixTranslate(j*size, -i*size + WORLD_H*size, k*size);
+			m[mCounts[0]+mIs] = MatrixMultiply(rotation, translation);
+			mIs++;
+		}
+
+	}
+	mCounts[0]+=mIs;
+
+
+}
+
+
+
+/*A debugging counting function*/
 void evalMesh(char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW){
 		int total = 0;
 		int i, j, k;
@@ -390,14 +607,11 @@ void evalMesh(char ***arr, int cX, int cY, int cZ, int cXW, int cYW, int cZW){
 			
 		}
 		
-		printf("%s%d\n", "Totals: ", total);
+		//printf("%s%d\n", "Totals: ", total);
 	
 }
 
-
-
-
-int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, int type){
+int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, int type, int *updateQueue, int *updateLength, int x){
 	int options = moves;
 	int dir = randRange(options-1);
 	int placed = 0;
@@ -406,6 +620,9 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 		//Fail condition: OOB or all options have been exhausted
 		if(dir == sDir || i+1 >= h){
 			placed = 1;
+			updateQueue[x-2] = -1;
+			updateQueue[x-1] = -1;
+			updateQueue[x] = -1;
 			return 0;
 			break;
 		}//Attempt right
@@ -415,15 +632,22 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 				arr[i][j][k] = 0;
 				arr[i+1][j-1][k] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x-1]--;
 				return 1;
 			} // Sand into water
 			else if(j-1 >= 0 && arr[i+1][j-1][k] == 3 && type == 2){
 				arr[i][j][k] = 3;
 				arr[i+1][j-1][k] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x-1]--;
 				return 1;
 			}
 			else if(j-1 < 0){
+				updateQueue[x-2] = -1;
+				updateQueue[x-1] = -1;
+				updateQueue[x] = -1;
 				placed = 1;
 			}
 		}//Attempt Left
@@ -433,16 +657,23 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 				arr[i][j][k] = 0;
 				arr[i+1][j+1][k] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x-1]++;
 				return 1;
 			} //Sand into water
 			else if(j+1 < w && arr[i+1][j+1][k] == 3 && type == 2){
 				arr[i][j][k] = 3;
 				arr[i+1][j+1][k] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x-1]++;
 				return 1;
 			}
 			else if(j+1 >= w){
 				placed = 1;
+				updateQueue[x-2] = -1;
+				updateQueue[x-1] = -1;
+				updateQueue[x] = -1;
 			}
 		}
 		//Attempt backwards
@@ -452,16 +683,23 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 				arr[i][j][k] = 0;
 				arr[i+1][j][k-1] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x]--;
 				return 1;
 			} // Sand into water
 			else if(k-1 >= 0 && arr[i+1][j][k-1] == 3 && type == 2){
 				arr[i][j][k] = 3;
 				arr[i+1][j][k-1] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x]--;
 				return 1;
 			}
 			else if(k-1 < 0){
 				placed = 1;
+				updateQueue[x-2] = -1;
+				updateQueue[x-1] = -1;
+				updateQueue[x] = -1;
 			}
 		}
 		//Attempt forwards
@@ -471,16 +709,23 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 				arr[i][j][k] = 0;
 				arr[i+1][j][k+1] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x]++;
 				return 1;
 			} //Sand into water
 			else if(k+1 < d && arr[i+1][j][k+1] == 3 && type == 2){
 				arr[i][j][k] = 3;
 				arr[i+1][j][k+1] = type;
 				placed = 1;
+				updateQueue[x-2]++;
+				updateQueue[x]++;
 				return 1;
 			}
 			else if(k+1 >= d){
 				placed = 1;
+				updateQueue[x-2] = -1;
+				updateQueue[x-1] = -1;
+				updateQueue[x] = -1;
 			}
 		}
 		
@@ -496,7 +741,125 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 	return 0;
 }
 
-void updateGrid(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char ***chunks){
+void updateGrid(int *updateQueue, int *updateLength, char ***arr, char ***chunks, float blockSize, Model **meshArr){
+
+	int v;
+	int emptyQueue = 1;
+	int emptyValues = 0;
+
+	//printf("%d\n", *updateLength);
+
+	for(int l = 0; l < WORLD_H/CHUNK_SIZE; l++){
+		for(int m = 0; m < WORLD_W/CHUNK_SIZE; m++){
+			for(int n = 0; n <= WORLD_Z/CHUNK_SIZE; n++){
+				chunks[l][m][n] = 0;
+			}	
+		}
+	}
+	
+
+
+	for(int x = *updateLength-1; x >= 0; x-=3){
+		int i = updateQueue[x-2];
+		int j = updateQueue[x-1];
+		int k = updateQueue[x];
+		//printf("%s%d\n", "i: ", i);
+		int updated = 0;
+
+		if(i == -1 && j == -1 && k == -1){
+			emptyValues+=3;
+			continue;
+		}
+		else {
+			emptyQueue = 0;
+		}
+
+		
+
+		if(arr[i][j][k] == 2){
+			//Downward into air
+			if(i+1 < WORLD_H && arr[i+1][j][k] == 0){
+				
+				arr[i][j][k] = 0;
+				arr[i+1][j][k] = 2;
+				updated = 1;
+				updateQueue[x-2]++;
+				
+
+			} //Downward into water
+			else if(i+1 < WORLD_H && arr[i+1][j][k] == 3){
+				arr[i][j][k]=3;
+				arr[i+1][j][k] = 2;
+				updated = 1;
+				updateQueue[x-2]++;
+				
+			} //Diagonal search
+			else{
+				v = testAdj(i, j, k, WORLD_W, WORLD_H, WORLD_Z, arr, 4, 2, updateQueue, updateLength, x);
+				if(v == 1){
+					updated = 1;
+				}
+				else {
+					arr[i][j][k] = 4;
+					recalculateMesh3D(blockSize, arr, j-1, k-1, 2, 2, 1, meshArr[j/CHUNK_SIZE][k/CHUNK_SIZE].meshes[0]);
+					updateQueue[x] = -1;
+					updateQueue[x-1] = -1;
+					updateQueue[x-2] = -1;
+					updated = 0;
+					if(x == *updateLength-1){
+						*updateLength-=3;
+						//printf("Shrank Update Buffer\n");
+					}
+				}
+				
+			}
+
+			
+		}//Water 
+
+		int cY = i / CHUNK_SIZE;
+		int cX = j / CHUNK_SIZE;
+		int cZ = k / CHUNK_SIZE;
+		
+		//printf("%s%d\n", "cX:", cX);
+
+		if(updated == 1){
+		//printf("updating\n");
+			
+		
+			for(int l = cY-1; l <= cY+1; l++){
+				for(int m = cX-1; m <= cX+1; m++){
+					for(int n = cZ-1; n <= cZ+1; n++){
+						//printf("%d\n", WORLD_W/CHUNK_SIZE);
+						if(l >= 0 && l < WORLD_H/CHUNK_SIZE && m >= 0 && m < WORLD_W/CHUNK_SIZE && n>=0 && n < WORLD_Z/CHUNK_SIZE){
+							//if(chunks[i][j] != 1){	
+							chunks[l][m][n] = 1;
+							//}
+						}	
+					}
+				}
+			}
+		
+		}
+		else {
+			
+			chunks[cY][cX][cZ] = 0;
+			
+			
+		}
+		
+	}
+
+	if(emptyQueue == 1){
+		*updateLength = 0;
+		//printf("%s\n", "Update Queue Cleared");
+	}
+	//printf("%s%d\n", "Empty values: ", emptyValues);
+
+}
+
+/*DEPRECATED*/
+void updateGridByChunk(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char ***chunks){
 	int i, j, k, v;
 	int updated = 0;
 
@@ -523,7 +886,8 @@ void updateGrid(int cX, int cY, int cZ, int w, int h, int d, char ***arr, char *
 						
 					} //Diagonal search
 					else{
-						v = testAdj(i, j, k, w, h, d, arr, 4, 2);
+						v = 0;
+						//v = testAdj(i, j, k, w, h, d, arr, 4, 2);
 						if(v == 1){
 							updated = 1;
 							
@@ -616,8 +980,26 @@ void rainBrush(char ***grid, char ***chunks){
 	}
 }
 
+void dumbBrush(char ***grid, char ***chunks){
+	int x, y, z, r;
+	for(y = WORLD_H-1; y > WORLD_H-10; y--){
+		for(x = 0; x < 400; x++){
+			for(z = 0; z < 400; z++){
+				r = randRange(5);
+				if(r == 1){
+					grid[y][x][z] = 4;
+					//chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
+				}
+				else {
+					grid[y][x][z] = 0;
+				}
+			}
+		}
+	}
+}
+
 //Random brush
-void dustBrush(char ***grid, char ***chunks){
+void dustBrush(char ***grid, char ***chunks, int *updateQueue, int *updateLength){
 	int x, y, z, r;
 	for(y = 0; y < WORLD_H; y++){
 		for(x = 0; x < WORLD_W; x++){
@@ -626,10 +1008,18 @@ void dustBrush(char ***grid, char ***chunks){
 				r = randRange(1);
 				if(r == 0 && y > WORLD_H-26 && y < WORLD_H){
 					grid[y][x][z] = 2;
+					//printf("%d%s%d%s%d\n", y, ",", x, ",", *updateLength-1);
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
+					*updateLength+=3;
+					updateQueue[*updateLength-1] = z;
+					updateQueue[*updateLength-2] = x;
+					updateQueue[*updateLength-3] = y;
+					//printf("%d\n", updateQueue[*updateLength-1]);
+					
 				}
 				else {
 					grid[y][x][z] = 0;
+					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
 			}
 		}
@@ -646,6 +1036,7 @@ void localBrush(char ***grid, char ***chunks){
 				r = randRange(2);
 				if(r == 1 && y > WORLD_H-66 && y < WORLD_H-40){
 					grid[y][x][z] = 2;
+					
 					chunks[(int)floor(y / CHUNK_SIZE)][(int)floor(x/CHUNK_SIZE)][(int)floor(z/CHUNK_SIZE)] = 1;
 				}
 				else if(grid[y][x][z] != 4){
@@ -665,7 +1056,8 @@ int main(void){
 	int offsetX = 100;
 	int offsetY = 20;
 	float blockSizes = 0.025f;
-	int chunkSize = 50;
+
+	/*Establish 3D World Grid*/
 
 	char ***grid = calloc(WORLD_H, sizeof(char**));
 	for (int i = 0; i < WORLD_H; i++) {
@@ -681,7 +1073,7 @@ int main(void){
 		}
 	}
 
-	//char chunks[WORLD_H/CHUNK_SIZE][WORLD_W/CHUNK_SIZE][WORLD_Z/CHUNK_SIZE] = {0};
+	/* Generate 3D Chunk Grid */
 	char ***chunks = calloc(WORLD_H/CHUNK_SIZE , sizeof(char**));
 	for (int i = 0; i < WORLD_H/CHUNK_SIZE; i++) {
 		
@@ -696,10 +1088,13 @@ int main(void){
 		}
 	}
 
+	/*Create 2D array of ground meshes*/
+
 	Model **meshArr = calloc(WORLD_W/CHUNK_SIZE, sizeof(Model*));
 	for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
 		meshArr[i] = calloc(WORLD_Z/CHUNK_SIZE, sizeof(Model));
 	}
+	/*2D Array that stores 1/0 for checking if a chunk already contains a ground mesh*/
 	char **occupiedMesh = calloc(WORLD_W/CHUNK_SIZE, sizeof(char*));
 	for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
 		occupiedMesh[i] = calloc(WORLD_Z/CHUNK_SIZE, sizeof(char));
@@ -707,17 +1102,20 @@ int main(void){
 
 
 	
-	//Mesh data array
+	/* Matrix containing transforms of particles */
 	Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 60, sizeof(Matrix));
 	if(sandMeshData == NULL){
 		printf("Failed memory allocation (mesh)\n");
 	}
-	
+
+	/* Update Queue */
+	int *updateQueue = calloc(WORLD_W * WORLD_H * WORLD_Z, sizeof(int));
+	int updateLength = 0;
 
 	int mCounts[1];
 	mCounts[0] = 0;
 
-	char f[4];
+	char f[14];
 	int k, l;
 	int init_update = 1;
 	
@@ -731,10 +1129,16 @@ int main(void){
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
 	Mesh cube = GenMeshCube(blockSizes, blockSizes, blockSizes);
+	//Mesh testShaderCube = GenMeshCube(1, 1, 1);
+	Mesh testShaderCube = GenMeshCone(1, 1, 4);
 	
 	// Load lighting shader
-    Shader shader = LoadShader(TextFormat("resources/lighting.vs"),
-                               TextFormat("resources/lighting.fs"));
+	/*
+	lighting.vs
+	lighting.fs
+	*/
+    Shader shader = LoadShader(TextFormat("resources/shaders/lighting.vs"),
+                               TextFormat("resources/shaders/lighting.fs"));
     // Get shader locations
     shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader, "mvp");
     shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
@@ -743,10 +1147,10 @@ int main(void){
 
     // Set shader value: ambient light level
     int ambientLoc = GetShaderLocation(shader, "ambient");
-    SetShaderValue(shader, ambientLoc, (float[4]){ 0.2f, 0.2f, 0.2f, 1.0f }, SHADER_UNIFORM_VEC4);
+    SetShaderValue(shader, ambientLoc, (float[4]){ 1.9f, 1.9f, 1.9f, 1.0f }, SHADER_UNIFORM_VEC4);
 
-	Shader shader2 = LoadShader(TextFormat("resources/lighting_instancing.vs"),
-                               TextFormat("resources/lighting.fs"));
+	Shader shader2 = LoadShader(TextFormat("resources/shaders/lighting_instancing.vs"),
+                               TextFormat("resources/shaders/lighting.fs"));
     // Get shader locations
     shader2.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader2, "mvp");
     shader2.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader2, "viewPos");
@@ -761,31 +1165,49 @@ int main(void){
 	 //Light lights[MAX_LIGHTS] = { 0 };
     //lights[0] = 
 	//CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
-	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 50.0f, 50.0f, 0.0f }, Vector3Zero(), WHITE, shader);
-	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader2);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 250.0f, 250.0f, 20.0f }, Vector3Zero(), WHITE, shader);
+	//CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader2);
 	//CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 0.0f, 50.0f, 50.0f }, Vector3Zero(), WHITE, shader);
 
-    Texture texture = LoadTexture("resources/sandtexture3.png");
+    Texture texture = LoadTexture("resources/textures/sandtexture3.png");
     
 
     Material matDefault = LoadMaterialDefault();
     matDefault.shader = shader2;
+	
 	matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
 
-	Model m;
+
+	Material matDefault2 = LoadMaterialDefault();
+    matDefault2.shader = shader;
+	matDefault2.maps[MATERIAL_MAP_DIFFUSE].color = RED;
+
+	Model m3 = LoadModel("resources/test.obj");
+	m3.materials[0].shader = shader;
+
+	Model dumb = LoadModelFromMesh(calcTestMesh3D());
+	dumb.materials[0].shader = shader;
     
 
-	dustBrush(grid, chunks);
-
+	//dustBrush(grid, chunks, updateQueue, &updateLength);
+	dumbBrush(grid, chunks);
+	/*
+	for(int b = 0; b < updateLength; b+=3){
+		printf("%d%s%d%s%d\n", updateQueue[b], ",", updateQueue[b+1], ",", updateQueue[b+2]);
+	}
+	*/
+	
 	//calcMesh3D(blockSizes, grid, 0, 0, 0, 100, 200, 100, sandMeshData, mCounts, 2);
 	int fCalc = 0;	
+	
+
 	
 	while(!WindowShouldClose()){
 
 		UpdateCamera(&camera, CAMERA_FIRST_PERSON);
 		
 		float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
-        SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+        //SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 		SetShaderValue(shader2, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
 		if(!fCalc){
@@ -797,6 +1219,7 @@ int main(void){
 		
 		if(IsKeyDown(49)){
 			brushMode = 1;
+			
 		}
 		if(IsKeyDown(50)){
 			brushMode = 2;
@@ -816,9 +1239,19 @@ int main(void){
 			DrawCube((Vector3){3, 0, 0}, 0.2f, 0.2f, 0.2f, BLUE);
 			DrawCube((Vector3){0, 0, 3}, 0.2f, 0.2f, 0.2f, GREEN);
             DrawGrid(50, 1.0f);
+			Matrix translationTest = MatrixTranslate(1, 1, 1);
+			DrawMesh(testShaderCube, matDefault2, translationTest);
+			//DrawModel(m3, (Vector3){0, 0, 0}, 1, RED);
+
+			//DrawModel(dumb, (Vector3){0, 0, 0}, 1, WHITE);
 			
 			Vector3 axis = (Vector3){ 0, 0, 0 };
 		//#pragma omp parallel
+
+		if(updateLength > 0){
+			updateGrid(updateQueue, &updateLength, grid, chunks, blockSizes, meshArr);
+		}
+
 		{
 			//int t = omp_get_thread_num();
 			//int tcnt = omp_get_num_threads();
@@ -826,23 +1259,29 @@ int main(void){
 				for(int v = 0; v < WORLD_W/CHUNK_SIZE; v++){
 					for(int w = 0; w < WORLD_Z/CHUNK_SIZE; w+=1){
 						if(chunks[u][v][w] == 1){
-							//DrawCube((Vector3){v * CHUNK_SIZE * chunkSize + (CHUNK_SIZE * chunkSize * 0.5), u  * chunkSize * 0.4 + (CHUNK_SIZE * chunkSize * 0.5), w*chunkSize*0.2 + (CHUNK_SIZE * chunkSize * 0.5)}, CHUNK_SIZE * chunkSize, CHUNK_SIZE * chunkSize, CHUNK_SIZE * chunkSize, (Color){255, 0, 0, 30});
-							updateGrid(v, u, w, WORLD_W, WORLD_H, WORLD_Z, grid, chunks);
+							//updateGrid(v, u, w, WORLD_W, WORLD_H, WORLD_Z, grid, chunks);
 							
 							if(occupiedMesh[v][w] == 0){
 								//If mesh does not exist create the mesh
-								//printf("called upon\n");
+								printf("%d%s%d\n", v, ",", w);
 								occupiedMesh[v][w] = 1;
-								meshArr[v][w] = LoadModelFromMesh(calcMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1));
+								
+								meshArr[v][w] = LoadModelFromMesh(calcMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1));
+								//meshArr[v][w] = calcMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1);
 								meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+								
 								meshArr[v][w].materials[0].shader = shader;
 							}
 							else if(occupiedMesh[v][w] == 1){
 								//Run a mesh update
 								//printf("Mesh update: %d%s%d\n", v, ",", w);
-								//recalculateMesh3D(blockSizes, grid, v*chunkSize, w*chunkSize, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
+								//DrawCube((Vector3){v*CHUNK_SIZE*blockSizes, 0.5, w*CHUNK_SIZE*blockSizes}, 0.03, 0.03, 0.03, RED);
+								//meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+								//meshArr[v][w].materials[0].shader = shader;
+								//recalculateMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
 							}
 							init_update = 1;
+							
 							
 						}
 							
@@ -855,8 +1294,11 @@ int main(void){
 		}
 		
 		if(init_update == 1){
+			//printf("%s\n", "calling");
 			refreshMeshBuffer(sandMeshData, mCounts);
-			evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
+			//evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
+			optimizedEvalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z}, updateQueue, updateLength);
+			
 			//m = LoadModelFromMesh(calcMesh3D(blockSizes, grid, 0, 0, 800, 800, 1));
 			init_update = 0;
 		}
@@ -867,17 +1309,22 @@ int main(void){
 				//m = LoadModelFromMesh(meshArr[i][j]);
 				//meshArr[i][j].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 				//meshArr[i][j].materials[0].shader = shader;
-		
-				DrawModel(meshArr[i][j], (Vector3){i*chunkSize*blockSizes, 0, j*chunkSize*blockSizes}, 1, WHITE);
+				
+				DrawModel(meshArr[i][j], (Vector3){0, 0, 0}, 1, WHITE);
 			}
 		}
 		
 		DrawMeshInstanced(cube, matDefault, sandMeshData, mCounts[0]);
 		
-		if(IsKeyPressed(32)){
-			printf("%s\n", "Calling local brush");
+		if(IsKeyDown(32)){
+			//printf("%s\n", "Calling local brush");
 			//localBrush(grid, chunks);
 			grid[150][30][150] = 2;
+			updateLength+=3;
+			updateQueue[updateLength-3] = 150;
+			updateQueue[updateLength-2] = 30;
+			updateQueue[updateLength-1] = 150;
+			
 			chunks[(int)floor(150 / CHUNK_SIZE)][(int)floor(30/CHUNK_SIZE)][(int)floor(150/CHUNK_SIZE)] = 1;
 			//evalMesh(grid, 0, 0, 0, 300, 200, 300);	
 		}
@@ -898,8 +1345,14 @@ int main(void){
 		
 
 		//Display FPS
-		sprintf(f, "%d", GetFPS());
+		sprintf(f, "%s%d", "FPS: ", GetFPS()); 
+		char sandCnts[50];
+		char liveParts[30];
+		sprintf(sandCnts, "%s%d%s%d", "Visibile Sand Particles: ", mCounts[0], "/", WORLD_W * WORLD_H * WORLD_Z / 60);
+		sprintf(liveParts, "%s%d%s%d", "Update Queue Size: ", updateLength, "/", WORLD_W * WORLD_H * WORLD_Z);
 		DrawText(f, 10, 20, 10, RED);
+		DrawText(sandCnts, 10, 40, 10, RED);
+		DrawText(liveParts, 10, 80, 10, RED);
 		
 		EndDrawing();
 	}
