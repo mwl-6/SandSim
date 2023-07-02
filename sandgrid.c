@@ -131,7 +131,7 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 	return 0;
 }
 
-void updateGrid(int *updateQueue, int *updateLength, char ***arr, char ***chunks, float blockSize, Model **meshArr){
+void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSize, Model **meshArr){
 
 	int v;
 	int emptyQueue = 1;
@@ -139,14 +139,6 @@ void updateGrid(int *updateQueue, int *updateLength, char ***arr, char ***chunks
 
 	//printf("%d\n", *updateLength);
 
-	for(int l = 0; l < WORLD_H/CHUNK_SIZE; l++){
-		for(int m = 0; m < WORLD_W/CHUNK_SIZE; m++){
-			for(int n = 0; n <= WORLD_Z/CHUNK_SIZE; n++){
-				chunks[l][m][n] = 0;
-			}	
-		}
-	}
-	
 
 
 	for(int x = *updateLength-1; x >= 0; x-=3){
@@ -207,36 +199,6 @@ void updateGrid(int *updateQueue, int *updateLength, char ***arr, char ***chunks
 			
 		}//Water 
 
-		int cY = i / CHUNK_SIZE;
-		int cX = j / CHUNK_SIZE;
-		int cZ = k / CHUNK_SIZE;
-		
-		//printf("%s%d\n", "cX:", cX);
-
-		if(updated == 1){
-		//printf("updating\n");
-			
-		
-			for(int l = cY-1; l <= cY+1; l++){
-				for(int m = cX-1; m <= cX+1; m++){
-					for(int n = cZ-1; n <= cZ+1; n++){
-						//printf("%d\n", WORLD_W/CHUNK_SIZE);
-						if(l >= 0 && l < WORLD_H/CHUNK_SIZE && m >= 0 && m < WORLD_W/CHUNK_SIZE && n>=0 && n < WORLD_Z/CHUNK_SIZE){
-							//if(chunks[i][j] != 1){	
-							chunks[l][m][n] = 1;
-							//}
-						}	
-					}
-				}
-			}
-		
-		}
-		else {
-			
-			chunks[cY][cX][cZ] = 0;
-			
-			
-		}
 		
 	}
 

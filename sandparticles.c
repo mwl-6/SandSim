@@ -28,6 +28,7 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 	j = (int)round(nxt.x);
 	k = (int)round(nxt.z);
 	int blockCounts = 0;
+	int misses = 0;
 
 	
 
@@ -35,6 +36,9 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 		
 		if(arr[i][j][k] == 2){
 			blockCounts++;
+		}
+		else {
+			misses++;
 		}
 	    nxt = Vector3Add((Vector3){nxt.x, nxt.y, nxt.z}, dir);
 		i = (int)round(nxt.y);
@@ -44,6 +48,9 @@ int rayBounds(char ***arr, int i, int j, int k, Vector3 cameraPos, float size){
 		//printf("%d%s%d%s%d\n", i, ",", j, ",", k);
 		if(blockCounts > 2){
 			return 0;
+		}
+		if(misses > 3){
+			return 1;
 		}
 		
 	}
