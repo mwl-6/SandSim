@@ -15,8 +15,8 @@
  * Chunk size 50
  * */
 #define WORLD_H 200
-#define WORLD_W 1000
-#define WORLD_Z 1000
+#define WORLD_W 2001
+#define WORLD_Z 2001
 #define CHUNK_SIZE 100
 
 #if defined(PLATFORM_DESKTOP)
@@ -44,16 +44,23 @@ int optimizedEvalParticles3D(float size, char ***arr, int cX, int cZ, int cXW, i
 
 /*SANDGRID.C*/
 int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, int type, int *updateQueue, int *updateLength, int x);
-void updateGrid(int *updateQueue, int *updateLength, char ***arr, char ***chunks, float blockSize, Model **meshArr);
+void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSize, Model **meshArr);
 
 
 /*SANDBRUSHES.C*/
-void rainBrush(char ***grid, char ***chunks);
-void dumbBrush(char ***grid, char ***chunks);
-void dustBrush(char ***grid, char ***chunks, int *updateQueue, int *updateLength);
-void localBrush(char ***grid, char ***chunks);
+void rainBrush(char ***grid);
+void dumbBrush(char ***grid);
+void dustBrush(char ***grid, int *updateQueue, int *updateLength);
+void localBrush(char ***grid);
+void noiseBrush(char ***grid);
 
 
+/*PERLIN.C*/
+int noise2(int x, int y);
+float lin_inter(float x, float y, float s);
+float smooth_inter(float x, float y, float s);
+float noise2d(float x, float y);
+float perlin2d(float x, float y, float freq, int depth);
 
 
 #endif
