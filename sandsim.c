@@ -43,17 +43,15 @@ int main(void){
 	for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
 		occupiedMesh[i] = calloc(WORLD_Z/CHUNK_SIZE, sizeof(char));
 	}
-
-
 	
 	/* Matrix containing transforms of particles */
-	Matrix *sandMeshData = (Matrix*)RL_CALLOC(WORLD_W * WORLD_H * WORLD_Z / 60, sizeof(Matrix));
+	Matrix *sandMeshData = (Matrix*)RL_CALLOC(1000 * WORLD_H * 1000 / 60, sizeof(Matrix));
 	if(sandMeshData == NULL){
 		printf("Failed memory allocation (mesh)\n");
 	}
 
 	/* Update Queue */
-	int *updateQueue = calloc(WORLD_W * WORLD_H * WORLD_Z, sizeof(int));
+	int *updateQueue = calloc(100 * WORLD_H * 100, sizeof(int));
 	int updateLength = 0;
 
 	int mCounts[1];
@@ -73,8 +71,10 @@ int main(void){
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
 	Mesh cube = GenMeshCube(blockSizes, blockSizes, blockSizes);
+	
 	//Mesh testShaderCube = GenMeshCube(1, 1, 1);
 	Mesh testShaderCube = GenMeshCone(1, 1, 4);
+	Mesh platformTestCube = GenMeshCube(1, 1, 1);
 	
 	// Load lighting shader
 	/*
@@ -107,6 +107,8 @@ int main(void){
 
     // Create one light
 	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 250.0f, 250.0f, 20.0f }, Vector3Zero(), WHITE, shader);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ 250.0f, 250.0f, 20.0f }, Vector3Zero(), WHITE, shader2);
+	CreateLight(LIGHT_DIRECTIONAL, (Vector3){ -250.0f, -250.0f, 20.0f }, Vector3Zero(), WHITE, shader2);
 	
     Texture texture = LoadTexture("resources/textures/sandtexture3.png");
     
@@ -114,23 +116,48 @@ int main(void){
     Material matDefault = LoadMaterialDefault();
     matDefault.shader = shader2;
 	
-	matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
+	//matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
+	matDefault.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 
 	Material matDefault2 = LoadMaterialDefault();
     matDefault2.shader = shader;
 	matDefault2.maps[MATERIAL_MAP_DIFFUSE].color = RED;
 
+	Material matDefault3 = LoadMaterialDefault();
+    matDefault3.shader = shader;
+	matDefault3.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+
+	
+
+	//matDefault3.texture = texture;
+
+
 	Model m3 = LoadModel("resources/test.obj");
 	m3.materials[0].shader = shader;
 
-	
+
+	Model platformDemoCube = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+	platformDemoCube.materials[0].shader = shader;
+	//platformDemoCube.maps[MATERIAL_MAP_DIFFUSE].color = RED;
 	//dumbBrush(grid);
 	noiseBrush(grid);
+
+	int myBlockOBJsCount = 5;
+	struct BlockOBJ *myBlockOBJs = calloc(myBlockOBJsCount, sizeof(struct BlockOBJ));
+
+	initBlockOBJ(&myBlockOBJs[0], 0, 300, 140, 200, 75, 5, 75, grid);
+	initBlockOBJ(&myBlockOBJs[1], 0, 400, 155, 400, 35, 5, 35, grid);
+	initBlockOBJ(&myBlockOBJs[2], 0, 300, 125, 320, 15, 5, 15, grid);
+	
 	DisableCursor();
+	//SetTargetFPS(120);
+
+	int dispenserX = 30;
+	int dispenserZ = 270;
 	
 	while(!WindowShouldClose()){
-
+		//printf("%d\n", grid[62][205][205]);
 		//UpdateCamera(&camera, CAMERA_FIRST_PERSON);
 		UpdateCameraPro(&camera,
             (Vector3){
@@ -156,8 +183,9 @@ int main(void){
 		SetShaderValue(shader2, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
 		//printf("%f%s%f%s%f\n", cameraTargetVector.x, ",", cameraTargetVector.y, ",", cameraTargetVector.z);
-
+		
 		BeginDrawing();
+		
 		
 		if(IsKeyDown(49)){
 			brushMode = 1;
@@ -183,12 +211,15 @@ int main(void){
             DrawGrid(50, 1.0f);
 			Matrix translationTest = MatrixTranslate(1, 1, 1);
 			DrawMesh(testShaderCube, matDefault2, translationTest);
+			renderBlockOBJ(&myBlockOBJs[0], blockSizes, platformDemoCube);
+			renderBlockOBJ(&myBlockOBJs[1], blockSizes, platformDemoCube);
+			renderBlockOBJ(&myBlockOBJs[2], blockSizes, platformDemoCube);
 			
 			Vector3 axis = (Vector3){ 0, 0, 0 };
 		//#pragma omp parallel
 
 		if(updateLength > 0){
-			updateGrid(updateQueue, &updateLength, grid, blockSizes, meshArr);
+			updateGrid(updateQueue, &updateLength, grid, blockSizes, meshArr, myBlockOBJs, myBlockOBJsCount);
 		}
 
 		{
@@ -209,14 +240,6 @@ int main(void){
 								
 								meshArr[v][w].materials[0].shader = shader;
 							}
-							else if(occupiedMesh[v][w] == 1){
-								//Run a mesh update
-								//printf("Mesh update: %d%s%d\n", v, ",", w);
-								//DrawCube((Vector3){v*CHUNK_SIZE*blockSizes, 0.5, w*CHUNK_SIZE*blockSizes}, 0.03, 0.03, 0.03, RED);
-								//meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-								//meshArr[v][w].materials[0].shader = shader;
-								//recalculateMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1, meshArr[v][w].meshes[0]);
-							}
 							init_update = 1;
 							
 							
@@ -234,7 +257,7 @@ int main(void){
 			//printf("%s\n", "calling");
 			refreshMeshBuffer(sandMeshData, mCounts);
 			//evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
-			optimizedEvalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z}, updateQueue, updateLength);
+			optimizedEvalParticles3D(blockSizes, grid, 0, 0, 1000, 1000, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z}, updateQueue, updateLength);
 			
 			//m = LoadModelFromMesh(calcMesh3D(blockSizes, grid, 0, 0, 800, 800, 1));
 			init_update = 0;
@@ -260,35 +283,75 @@ int main(void){
 
 				if(angleBetween < 1.4 || isnan(angleBetween) || Vector2Distance((Vector2){localChunkX, localChunkY}, (Vector2){camera.position.x, camera.position.z}) < 5){
 					chunkCnt++;
-					DrawModel(meshArr[i][j], (Vector3){0, 0, 0}, 1, WHITE);
+					DrawModel(meshArr[i][j], (Vector3){0 + 0.00*i, 0, 0+ 0.00*j}, 1, WHITE);
 				}
 				
 			}
 		}
 		//printf("%s%d\n", "Chunks visible: ", chunkCnt);
 		
-		DrawMeshInstanced(cube, matDefault, sandMeshData, mCounts[0]);
+		//if(myPrism.mesh != NULL){
+			//printf("true\n");
+		for(int i = 0; i < 3; i++){
+			
+			DrawMesh(myBlockOBJs[i].mesh, matDefault3, MatrixTranslate(0, 0, 0));
+			//DrawMesh(myPrism.mesh, matDefault2, MatrixTranslate(0, 1, 0));
+		}
+		//}
+		//DrawModel(LoadModelFromMesh(*myPrism.mesh), (Vector3){0, 1, 0}, 1, WHITE);
+		
 		
 		if(IsKeyDown(32)){
 			//printf("%s\n", "Calling local brush");
 			
-			grid[70][30][150] = 2;
-			updateLength+=3;
-			updateQueue[updateLength-3] = 70;
-			updateQueue[updateLength-2] = 30;
-			updateQueue[updateLength-1] = 150;
-			grid[71][30][151] = 2;
-			updateLength+=3;
-			updateQueue[updateLength-3] = 71;
-			updateQueue[updateLength-2] = 30;
-			updateQueue[updateLength-1] = 151;
-			grid[70][30][151] = 2;
-			updateLength+=3;
-			updateQueue[updateLength-3] = 70;
-			updateQueue[updateLength-2] = 30;
-			updateQueue[updateLength-1] = 151;
+			for(int y = dispenserX-5; y < dispenserX+5; y++){
+				for(int x = dispenserZ-5; x < dispenserZ+5; x++){
+					if(randRange(37) == 0){
+						grid[70][y][x] = 2;
+						insertParticleIntoQueue(updateQueue, &updateLength, 70, y, x);
+					}
+				}
+			}
+			/*
+			grid[70][dispenserX][dispenserZ] = 2;
+			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX, dispenserZ);
+			grid[70][dispenserX+1][dispenserZ+1] = 2;
+			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX+1, dispenserZ+1);
+			grid[70][dispenserX][dispenserZ+1] = 2;
+			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX, dispenserZ+1);
+			*/
 			
-			
+		}
+		DrawMeshInstanced(cube, matDefault, sandMeshData, mCounts[0]);
+		if(IsKeyDown(76)){
+			dispenserZ++;
+		}
+		if(IsKeyDown(74)){
+			dispenserZ--;
+		}
+		if(IsKeyDown(75)){
+			dispenserX--;
+		}
+		if(IsKeyDown(73)){
+			dispenserX++;
+		}
+		if(dispenserX >= WORLD_W){
+			dispenserX = WORLD_W-1;
+		}
+		if(dispenserX < 0){
+			dispenserX = 0;
+		}
+		if(dispenserZ >= WORLD_Z){
+			dispenserZ = WORLD_Z-1;
+		}
+		if(dispenserZ < 0){
+			dispenserZ = 0;
+		}
+
+		DrawCube((Vector3){dispenserX * blockSizes, 130 * blockSizes, dispenserZ * blockSizes}, 0.1, 0.1, 0.1, RED);
+		if(IsKeyPressed(80)){
+			printf("%s\n", "Called Mesh Refresh");
+			clearAllMeshes(meshArr, occupiedMesh);
 		}
 		
 		
@@ -311,8 +374,8 @@ int main(void){
 		char sandCnts[50];
 		char liveParts[30];
 		char chunkCntText[20];
-		sprintf(sandCnts, "%s%d%s%d", "Visibile Sand Particles: ", mCounts[0], "/", WORLD_W * WORLD_H * WORLD_Z / 60);
-		sprintf(liveParts, "%s%d%s%d", "Update Queue Size: ", updateLength, "/", WORLD_W * WORLD_H * WORLD_Z);
+		sprintf(sandCnts, "%s%d%s%d", "Visibile Sand Particles: ", mCounts[0], "/", 100 * WORLD_H * 100 / 60);
+		sprintf(liveParts, "%s%d%s%d", "Update Queue Size: ", updateLength, "/", 100 * WORLD_H * 100);
 		sprintf(chunkCntText, "%s%d%s%d", "Chunks Visible: ", chunkCnt, "/", (WORLD_W/CHUNK_SIZE)*(WORLD_Z/CHUNK_SIZE));
 		DrawText(f, 10, 20, 10, RED);
 		DrawText(sandCnts, 10, 40, 10, RED);

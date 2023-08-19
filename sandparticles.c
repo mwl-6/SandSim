@@ -1,8 +1,8 @@
 #include "sandsim.h"
 
 
-int fHeight(char ***arr, int j, int k){
-	int rVal = WORLD_H-1;
+int fHeight(char ***arr, int j, int k, int rVal){
+	//int rVal = WORLD_H-1;
 	
 	while(rVal > 0 && arr[rVal][j][k] == 4){
 		

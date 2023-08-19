@@ -1,5 +1,22 @@
 #include "sandsim.h"
 
+void insertParticleIntoQueue(int *updateQueue, int *updateLength, int y, int x, int z){
+	int i;
+	int expandQueue = 1;
+	for(i = 0; i < *updateLength; i+=3){
+		if(updateQueue[i] == -1){
+			expandQueue = 0;
+			break;
+		}
+	}
+	updateQueue[i] = y;
+	updateQueue[i+1] = x;
+	updateQueue[i+2] = z;
+	if(expandQueue){
+		*updateLength+=3;
+	}
+
+}
 
 int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, int type, int *updateQueue, int *updateLength, int x){
 	int options = moves;
@@ -131,7 +148,7 @@ int testAdj(int i, int j, int k, int w, int h, int d, char ***arr, int moves, in
 	return 0;
 }
 
-void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSize, Model **meshArr){
+void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSize, Model **meshArr, struct BlockOBJ *myBlockOBJs, int myBlockOBJsCount){
 
 	int v;
 	int emptyQueue = 1;
@@ -159,6 +176,7 @@ void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSiz
 		
 
 		if(arr[i][j][k] == 2){
+			//printf("%d\n", arr[i+1][j][k]);
 			//Downward into air
 			if(i+1 < WORLD_H && arr[i+1][j][k] == 0){
 				
@@ -166,6 +184,7 @@ void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSiz
 				arr[i+1][j][k] = 2;
 				updated = 1;
 				updateQueue[x-2]++;
+				
 				
 
 			} //Downward into water
@@ -183,7 +202,17 @@ void updateGrid(int *updateQueue, int *updateLength, char ***arr, float blockSiz
 				}
 				else {
 					arr[i][j][k] = 4;
-					recalculateMesh3D(blockSize, arr, j-1, k-1, 2, 2, 1, meshArr[j/CHUNK_SIZE][k/CHUNK_SIZE].meshes[0]);
+					
+					//updatedRecalculateMesh3D(blockSize, arr, j, k, meshArr[j/CHUNK_SIZE][k/CHUNK_SIZE].meshes[0]);
+					recalculateMesh3D(blockSize, arr, j-1, k-1, 2, 2, 1, meshArr[j/CHUNK_SIZE][k/CHUNK_SIZE].meshes[0], myBlockOBJs, myBlockOBJsCount);
+					if(k%CHUNK_SIZE == 0){
+						recalculateMesh3D(blockSize, arr, j-1, k-2, 2, 2, 1, meshArr[j/CHUNK_SIZE][(k-1)/CHUNK_SIZE].meshes[0], myBlockOBJs, myBlockOBJsCount);
+					}
+					if(j%CHUNK_SIZE == 0){
+						recalculateMesh3D(blockSize, arr, j-2, k-1, 2, 2, 1, meshArr[(j-1)/CHUNK_SIZE][(k)/CHUNK_SIZE].meshes[0], myBlockOBJs, myBlockOBJsCount);
+					}
+					
+					//recalculateMesh3D(blockSize, arr, j, k, 1, 1, 1, meshArr[j/CHUNK_SIZE][k/CHUNK_SIZE].meshes[0]);
 					updateQueue[x] = -1;
 					updateQueue[x-1] = -1;
 					updateQueue[x-2] = -1;
