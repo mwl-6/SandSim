@@ -64,8 +64,8 @@ int main(void){
 	InitWindow(screenWidth, screenHeight, "Sand Simulation");
 
 	Camera camera = { 0 };
-    camera.position = (Vector3){ WORLD_W * blockSizes / 2.0f, 2.0f, WORLD_W * blockSizes / 2.0f }; // Camera position
-    camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };      // Camera looking at point
+    camera.position = (Vector3){ 0.5, 4, 0.5 }; // Camera position
+    camera.target = (Vector3){ WORLD_W * blockSizes / 2.0f, 1.0f, WORLD_W * blockSizes / 2.0f };      // Camera looking at point
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
    	camera.fovy = 45.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
@@ -116,7 +116,6 @@ int main(void){
     Material matDefault = LoadMaterialDefault();
     matDefault.shader = shader2;
 	
-	//matDefault.maps[MATERIAL_MAP_DIFFUSE].color = YELLOW;
 	matDefault.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 
@@ -128,9 +127,6 @@ int main(void){
     matDefault3.shader = shader;
 	matDefault3.maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
-	
-
-	//matDefault3.texture = texture;
 
 
 	Model m3 = LoadModel("resources/test.obj");
@@ -139,8 +135,6 @@ int main(void){
 
 	Model platformDemoCube = LoadModelFromMesh(GenMeshCube(1, 1, 1));
 	platformDemoCube.materials[0].shader = shader;
-	//platformDemoCube.maps[MATERIAL_MAP_DIFFUSE].color = RED;
-	//dumbBrush(grid);
 	noiseBrush(grid);
 
 	int myBlockOBJsCount = 5;
@@ -151,20 +145,19 @@ int main(void){
 	initBlockOBJ(&myBlockOBJs[2], 0, 300, 125, 320, 15, 5, 15, grid);
 	
 	DisableCursor();
-	//SetTargetFPS(120);
 
-	int dispenserX = 30;
-	int dispenserZ = 270;
+	int dispenserX = 230;
+	int dispenserZ = 170;
+	float disX = 230.0f;
+	float disZ = 170.0f;
 	
 	while(!WindowShouldClose()){
-		//printf("%d\n", grid[62][205][205]);
-		//UpdateCamera(&camera, CAMERA_FIRST_PERSON);
 		UpdateCameraPro(&camera,
             (Vector3){
-                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))*0.1f -      // Move forward-backward
-                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))*0.1f,    
-                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))*0.1f -   // Move right-left
-                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))*0.1f,
+                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))*10.0f*GetFrameTime() -      // Move forward-backward
+                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))*10.0f*GetFrameTime(),    
+                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))*10.0f*GetFrameTime() -   // Move right-left
+                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))*10.0f*GetFrameTime(),
                 0.0f                                                // Move up-down
             },
             (Vector3){
@@ -179,11 +172,8 @@ int main(void){
 		Vector3 cameraTargetVector = Vector3Subtract(camera.position, camera.target);
 		Vector2 normalTarget = Vector2Normalize((Vector2){cameraTargetVector.x, cameraTargetVector.z});
 
-        //SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 		SetShaderValue(shader2, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
-		//printf("%f%s%f%s%f\n", cameraTargetVector.x, ",", cameraTargetVector.y, ",", cameraTargetVector.z);
-		
 		BeginDrawing();
 		
 		
@@ -205,12 +195,12 @@ int main(void){
 		BeginMode3D(camera);
 
 
-			DrawLine3D((Vector3){50, 50, 50}, (Vector3){0, 0, 0}, RED);
+			//DrawLine3D((Vector3){50, 50, 50}, (Vector3){0, 0, 0}, RED);
 			DrawCube((Vector3){3, 0, 0}, 0.2f, 0.2f, 0.2f, BLUE);
 			DrawCube((Vector3){0, 0, 3}, 0.2f, 0.2f, 0.2f, GREEN);
             DrawGrid(50, 1.0f);
 			Matrix translationTest = MatrixTranslate(1, 1, 1);
-			DrawMesh(testShaderCube, matDefault2, translationTest);
+			
 			renderBlockOBJ(&myBlockOBJs[0], blockSizes, platformDemoCube);
 			renderBlockOBJ(&myBlockOBJs[1], blockSizes, platformDemoCube);
 			renderBlockOBJ(&myBlockOBJs[2], blockSizes, platformDemoCube);
@@ -231,11 +221,10 @@ int main(void){
 						
 							if(occupiedMesh[v][w] == 0){
 								//If mesh does not exist create the mesh
-								//printf("%d%s%d\n", v, ",", w);
 								occupiedMesh[v][w] = 1;
 								
 								meshArr[v][w] = LoadModelFromMesh(calcMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1));
-								//meshArr[v][w] = calcMesh3D(blockSizes, grid, v*CHUNK_SIZE, w*CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, 1);
+								
 								meshArr[v][w].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 								
 								meshArr[v][w].materials[0].shader = shader;
@@ -254,32 +243,26 @@ int main(void){
 		}
 		
 		if(init_update == 1){
-			//printf("%s\n", "calling");
+			
 			refreshMeshBuffer(sandMeshData, mCounts);
-			//evalParticles3D(blockSizes, grid, 0, 0, 300, 300, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z});
 			optimizedEvalParticles3D(blockSizes, grid, 0, 0, 1000, 1000, sandMeshData, mCounts, 1, (Vector3){camera.position.x, camera.position.y, camera.position.z}, updateQueue, updateLength);
 			
-			//m = LoadModelFromMesh(calcMesh3D(blockSizes, grid, 0, 0, 800, 800, 1));
 			init_update = 0;
 		}
 		
 		
+		//Only draw visible chunks
 		int chunkCnt = 0;
 		for(int i = 0; i < WORLD_W/CHUNK_SIZE; i++){
 			for(int j = 0; j < WORLD_Z/CHUNK_SIZE; j++){
-				//m = LoadModelFromMesh(meshArr[i][j]);
-				//meshArr[i][j].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-				//meshArr[i][j].materials[0].shader = shader;
 				float localChunkX = (i+0.5)*CHUNK_SIZE*blockSizes;
 				float localChunkY = (j+0.5)*CHUNK_SIZE*blockSizes;
 
-				//y=mx+b
+				
 				Vector3 newTargetVector = Vector3Normalize(Vector3Subtract(camera.position, (Vector3){localChunkX, camera.position.y, localChunkY}));
 				Vector2 newTarget = (Vector2){newTargetVector.x, newTargetVector.z};
 				
 				float angleBetween = acos(Vector2DotProduct(newTarget, normalTarget));
-
-				//printf("%f\n", angleBetween);
 
 				if(angleBetween < 1.4 || isnan(angleBetween) || Vector2Distance((Vector2){localChunkX, localChunkY}, (Vector2){camera.position.x, camera.position.z}) < 5){
 					chunkCnt++;
@@ -288,21 +271,15 @@ int main(void){
 				
 			}
 		}
-		//printf("%s%d\n", "Chunks visible: ", chunkCnt);
 		
-		//if(myPrism.mesh != NULL){
-			//printf("true\n");
 		for(int i = 0; i < 3; i++){
 			
 			DrawMesh(myBlockOBJs[i].mesh, matDefault3, MatrixTranslate(0, 0, 0));
-			//DrawMesh(myPrism.mesh, matDefault2, MatrixTranslate(0, 1, 0));
+			
 		}
-		//}
-		//DrawModel(LoadModelFromMesh(*myPrism.mesh), (Vector3){0, 1, 0}, 1, WHITE);
 		
 		
 		if(IsKeyDown(32)){
-			//printf("%s\n", "Calling local brush");
 			
 			for(int y = dispenserX-5; y < dispenserX+5; y++){
 				for(int x = dispenserZ-5; x < dispenserZ+5; x++){
@@ -312,29 +289,24 @@ int main(void){
 					}
 				}
 			}
-			/*
-			grid[70][dispenserX][dispenserZ] = 2;
-			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX, dispenserZ);
-			grid[70][dispenserX+1][dispenserZ+1] = 2;
-			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX+1, dispenserZ+1);
-			grid[70][dispenserX][dispenserZ+1] = 2;
-			insertParticleIntoQueue(updateQueue, &updateLength, 70, dispenserX, dispenserZ+1);
-			*/
+			
 			
 		}
 		DrawMeshInstanced(cube, matDefault, sandMeshData, mCounts[0]);
 		if(IsKeyDown(76)){
-			dispenserZ++;
+			
+			disZ+=(100.0f*GetFrameTime());
 		}
 		if(IsKeyDown(74)){
-			dispenserZ--;
+			disZ-=(100.0f*GetFrameTime());
 		}
 		if(IsKeyDown(75)){
-			dispenserX--;
+			disX-=(100.0f*GetFrameTime());
 		}
 		if(IsKeyDown(73)){
-			dispenserX++;
+			disX+=100.0f*GetFrameTime();
 		}
+		
 		if(dispenserX >= WORLD_W){
 			dispenserX = WORLD_W-1;
 		}
@@ -347,6 +319,8 @@ int main(void){
 		if(dispenserZ < 0){
 			dispenserZ = 0;
 		}
+		dispenserX = (int)disX;
+		dispenserZ = (int)disZ;
 
 		DrawCube((Vector3){dispenserX * blockSizes, 130 * blockSizes, dispenserZ * blockSizes}, 0.1, 0.1, 0.1, RED);
 		if(IsKeyPressed(80)){
